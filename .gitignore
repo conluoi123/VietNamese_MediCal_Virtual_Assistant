@@ -1,0 +1,22 @@
+# Ignore all HTML files
+*.html
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+# Data and Models
+*.faiss
+*.pkl
+*.bin
+*.pt
+*.h5
+
+# OS
+.DS_Store
+Thumbs.db
