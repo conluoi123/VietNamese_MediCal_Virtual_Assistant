@@ -107,6 +107,17 @@ python src/retriever/faiss_store.py --build
 streamlit run app/streamlit_app.py
 ```
 
+### 4. Chạy bằng Docker (Khuyên dùng)
+
+Nếu bạn đã cài đặt Docker, đây là cách nhanh nhất để khởi chạy ứng dụng mà không cần cài đặt Java hay Python thủ công:
+
+```bash
+# Khởi chạy hệ thống (tự động cài Java & Dependencies)
+docker-compose -f docker/docker-compose.yml up --build
+```
+
+Sau đó, truy cập ứng dụng tại: `http://localhost:8501`
+
 ---
 
 ## 📊 Đánh Giá Mô Hình

@@ -1,0 +1,15 @@
+services:
+  vimedqa-app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: vimedqa_assistant
+    ports:
+      - "8501:8501"
+    volumes:
+      - ../app:/app/app
+      - ../data:/app/data
+      - ../configs:/app/configs
+    environment:
+      - STREAMLIT_SERVER_PORT=8501
+    restart: always
