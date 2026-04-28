@@ -1,0 +1,26 @@
+# Model weights — never commit to GitHub; store on Drive / HuggingFace Hub
+*.pt
+*.bin
+*.safetensors
+
+# Dataset files — stored on Google Drive, not in repo
+data/
+
+# Secrets
+.env
+
+# Jupyter cache
+.ipynb_checkpoints/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Result files (large, stored on Drive)
+*.csv
+*.json
+
+# Misc
+wandb/
+.DS_Store
