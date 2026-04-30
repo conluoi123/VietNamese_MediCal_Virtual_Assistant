@@ -1,7 +1,36 @@
 \section{Methodology}
-% (~1.5 pages)
-% - Problem formulation: Abstractive QA definition
-% - Model architectures: ViT5-base (T5), BARTpho-word (BART)
-% - Input/Output format: "question: {q} context: {c}" -> "{answer}"
-% - Fine-tuning setup: hyperparameters, training procedure, checkpoints
-% - Evaluation metrics: ROUGE-1/2/L, BLEU-4, BERTScore-F1
+
+\subsection{Problem Formulation}
+We formulate the task as abstractive question answering: given a medical question $q$ and a relevant context passage $c$, the model generates an answer $a$ in natural Vietnamese. Formally, we train a sequence-to-sequence model $f_\theta$ such that:
+\begin{equation}
+  a = f_\theta(\texttt{"question: } q \texttt{ context: } c\texttt{"})
+\end{equation}
+
+\subsection{Model Architectures}
+We fine-tune two Vietnamese Transformer-based Seq2Seq models:
+\begin{itemize}
+  \item \textbf{ViT5-base} \cite{phan-etal-2022-vit5}: A T5 architecture pretrained on Vietnamese text ($\sim$270M parameters).
+  \item \textbf{BARTpho-word} \cite{tran-etal-2021-bartpho}: A BART architecture with word-level tokenization ($\sim$396M parameters).
+\end{itemize}
+A zero-shot \textbf{Llama-3.3-70B-versatile} baseline via Groq API is included as an external reference point.
+
+\subsection{Retrieval-Augmented Generation (RAG)}
+\label{sec:rag}
+To improve the practical usability of our system, we integrate a \textbf{Retrieval-Augmented Generation (RAG)} pipeline at inference time. This allows end users to input only a question, without needing to provide a medical context document manually.
+
+The RAG pipeline operates as follows:
+\begin{enumerate}
+  \item \textbf{Knowledge Base Construction:} We extract all unique context passages from the ViMedAQA dataset to form a medical corpus.
+  \item \textbf{BM25 Retrieval:} Given a user question, we use BM25Okapi (a TF-IDF-based ranking function) to retrieve the top-1 most relevant context from the corpus.
+  \item \textbf{Answer Generation:} The retrieved context is concatenated with the question in the training format (\texttt{question: \{q\} context: \{c\}}) and passed to the fine-tuned ViT5 model.
+\end{enumerate}
+
+\noindent\textbf{Note:} During training, models are fine-tuned with gold (ground-truth) contexts from the dataset. The BM25 retrieval module is used only at inference time in the web application, ensuring that model evaluation remains fair and comparable.
+
+\subsection{Evaluation Metrics}
+We evaluate generated answers using:
+\begin{itemize}
+  \item \textbf{ROUGE-1/2/L} — measures n-gram overlap between generated and reference answers.
+  \item \textbf{BLEU-4} — measures 4-gram precision with brevity penalty.
+  \item \textbf{BERTScore-F1} — measures semantic similarity using contextualized embeddings.
+\end{itemize}

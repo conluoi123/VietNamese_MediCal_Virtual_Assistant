@@ -13,9 +13,19 @@
 
 ## Overview
 
-This project fine-tunes Vietnamese Transformer-based Seq2Seq models (**ViT5-base** and **BARTpho-word**) on the ViMedAQA dataset for abstractive medical question answering. A zero-shot **Gemini 2.5 Flash** baseline is also included for comparison.
+This project fine-tunes Vietnamese Transformer-based Seq2Seq models (**ViT5-base** and **BARTpho-word**) on the ViMedAQA dataset for abstractive medical question answering. A zero-shot **Llama-3.3-70B-versatile** baseline via Groq API is also included for comparison.
 
-**Input/Output Format (unified across all models):**
+### RAG Pipeline (Retrieval-Augmented Generation)
+
+The web application uses a **RAG architecture** powered by BM25 retrieval:
+
+```
+User Question → BM25 Retrieval (top-1 context) → ViT5 Generation → Answer
+```
+
+The end user only needs to input a **question** — the system automatically retrieves the most relevant medical context from a knowledge base of unique medical articles extracted from ViMedAQA, then feeds it to the fine-tuned model.
+
+**Training Format (used during fine-tuning):**
 ```
 INPUT : "question: {question} context: {context}"
 OUTPUT: "{answer}"
@@ -29,11 +39,13 @@ OUTPUT: "{answer}"
 implementation/
 ├── data/
 │   ├── raw/             # Full dataset backup (JSON)
-│   ├── processed/       # train.json, val.json, test.json
+│   ├── processed/       # train.json, val.json, test.json,
+│   │                    # medical_corpus.json, bm25_index.pkl
 │   └── eda/             # EDA charts and statistics CSV
 ├── notebooks/
 │   ├── 01_data_exploration.ipynb   # Phase 1 — EDA & data split
-│   ├── 02_baseline_gemini.ipynb    # Phase 2 — Zero-shot baseline
+│   ├── 01b_build_retrieval_index.ipynb  # Phase 1.5 — Build BM25 knowledge base
+│   ├── 02_baseline_groq.ipynb      # Phase 2 — Zero-shot baseline
 │   ├── 03a_train_vit5.ipynb        # Phase 3A — ViT5-base fine-tuning
 │   ├── 03b_train_bartpho.ipynb     # Phase 3B — BARTpho-word fine-tuning
 │   ├── 03c_train_mt5.ipynb         # Phase 3C — mT5-base (optional)
@@ -64,7 +76,7 @@ implementation/
 | ViT5-base | Seq2Seq (T5) | ~270M | `VietAI/vit5-base` |
 | BARTpho-word | Seq2Seq (BART) | ~396M | `vinai/bartpho-word` |
 | mT5-base *(optional)* | Seq2Seq (T5) | ~580M | `google/mt5-base` |
-| Gemini 2.5 Flash | LLM (zero-shot) | N/A | Google AI API |
+| Llama-3.3-70B-versatile | LLM (zero-shot) | ~70B | Groq API |
 
 ---
 
