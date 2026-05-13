@@ -16,6 +16,7 @@ env/
 *.bin
 *.pt
 *.h5
+PIPELINE/
 
 # OS
 .DS_Store
