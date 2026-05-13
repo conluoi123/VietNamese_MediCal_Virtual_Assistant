@@ -8,7 +8,7 @@ data/
 
 # Secrets
 .env
-
+venv
 # Jupyter cache
 .ipynb_checkpoints/
 
@@ -20,6 +20,9 @@ __pycache__/
 # Result files (large, stored on Drive)
 *.csv
 *.json
+PIPELINE_ViMedAQA.md
+task.md
+SKILLS.md 
 
 # Misc
 wandb/
