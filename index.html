@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ViMedQA RAG - Kế Hoạch Dự Án</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1A56A0;
+            --secondary: #2E86C1;
+            --accent: #17A589;
+            --warning: #E67E22;
+            --danger: #C0392B;
+            --light: #D6EAF8;
+            --light-green: #D5F5E3;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-dark: #1B2631;
+            --text-mid: #5D6D7E;
+            --border: #AED6F1;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-dark);
+            line-height: 1.6;
+            scroll-behavior: smooth;
+        }
+
+        h1, h2, h3, .title-font {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            position: fixed;
+            left: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 240px;
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: var(--shadow);
+            z-index: 100;
+            display: none; /* Desktop only */
+        }
+
+        @media (min-width: 1400px) {
+            .sidebar {
+                display: block;
+            }
+            .container {
+                margin-left: 300px;
+                max-width: 900px;
+            }
+        }
+
+        .sidebar ul {
+            list-style: none;
+        }
+
+        .sidebar li {
+            margin-bottom: 0.8rem;
+        }
+
+        .sidebar a {
+            text-decoration: none;
+            color: var(--text-mid);
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            display: block;
+            padding: 0.3rem 0.5rem;
+            border-radius: 0.4rem;
+        }
+
+        .sidebar a:hover {
+            color: var(--primary);
+            background: var(--light);
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: 2rem;
+            margin-bottom: 3rem;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '🏥';
+            position: absolute;
+            top: -20px;
+            right: -20px;
+            font-size: 10rem;
+            opacity: 0.1;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            letter-spacing: -1px;
+        }
+
+        .hero p.subtitle {
+            font-size: 1.5rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .hero .meta {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 0.8rem 1.5rem;
+            border-radius: 2rem;
+            backdrop-filter: blur(10px);
+            font-size: 0.9rem;
+        }
+
+        /* Section Styling */
+        section {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: transform 0.3s ease;
+        }
+
+        section:hover {
+            transform: translateY(-5px);
+        }
+
+        h2 {
+            color: var(--primary);
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            border-bottom: 2px solid var(--light);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            color: var(--secondary);
+            margin: 1.5rem 0 1rem;
+            font-size: 1.3rem;
+        }
+
+        .info-box {
+            background: var(--light);
+            border-left: 5px solid var(--primary);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            margin: 1.5rem 0;
+            font-style: italic;
+            color: var(--text-dark);
+        }
+
+        .info-box.success {
+            background: var(--light-green);
+            border-left-color: var(--accent);
+        }
+
+        .info-box.warning {
+            background: #FEF9E7;
+            border-left-color: var(--warning);
+        }
+
+        .info-box.danger {
+            background: #FADBD8;
+            border-left-color: var(--danger);
+        }
+
+        /* Table Styling */
+        .table-container {
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            border-radius: 0.8rem;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th {
+            background: var(--primary);
+            color: white;
+            text-align: left;
+            padding: 1rem;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #edf2f7;
+            font-size: 0.95rem;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 0.4rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-primary { background: var(--light); color: var(--primary); }
+        .badge-accent { background: var(--light-green); color: var(--accent); }
+
+        ul, ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Timeline specific */
+        .timeline-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .week-card {
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        .week-header {
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 4rem 0;
+            color: var(--text-mid);
+            font-size: 0.9rem;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        section {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <ul>
+            <li><a href="#tong-quan">1. Tổng quan</a></li>
+            <li><a href="#tech-stack">2. Tech Stack</a></li>
+            <li><a href="#thu-muc">3. Cấu trúc thư mục</a></li>
+            <li><a href="#du-lieu">4. Xử lý dữ liệu</a></li>
+            <li><a href="#huan-luyen">5. Huấn luyện</a></li>
+            <li><a href="#danh-gia">6. Đánh giá</a></li>
+            <li><a href="#demo">7. Giao diện Demo</a></li>
+            <li><a href="#timeline">8. Timeline</a></li>
+            <li><a href="#dong-goi">9. Đóng gói</a></li>
+            <li><a href="#rui-ro">10. Quản lý rủi ro</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <!-- Hero -->
+        <header class="hero">
+            <h1>ViMedQA RAG</h1>
+            <p class="subtitle">Trợ Lý Y Tế Thông Minh — Kế Hoạch Dự Án</p>
+            <p style="margin-top: 10px; font-style: italic;">Vietnamese Medical Virtual Assistant với RAG + ViT5</p>
+            
+            <div class="meta">
+                <div class="meta-item"><i class="fas fa-file-alt"></i> Project Plan — NLP</div>
+                <div class="meta-item"><i class="fas fa-database"></i> ViMedAQA + Med-QA</div>
+                <div class="meta-item"><i class="fas fa-code-branch"></i> v1.0 — 2025</div>
+            </div>
+        </header>
+
+        <!-- Section 1 -->
+        <section id="tong-quan">
+            <h2><i class="fas fa-info-circle"></i> 1. TỔNG QUAN DỰ ÁN</h2>
+            <h3>1.1 Mục tiêu</h3>
+            <p>Xây dựng một hệ thống Trợ Lý Y Tế Thông Minh (Medical Virtual Assistant) cho người dùng Việt Nam, ứng dụng kỹ thuật RAG (Retrieval-Augmented Generation) kết hợp mô hình ViT5 fine-tuned trên dataset y tế tiếng Việt. Hệ thống cung cấp câu trả lời có trích dẫn nguồn, giảm thiểu hallucination và có cảnh báo an toàn y tế.</p>
+
+            <h3>1.2 Phạm vi</h3>
+            <ul>
+                <li><strong>Bài toán:</strong> Abstractive Question Answering — Medical Domain — Tiếng Việt</li>
+                <li><strong>Dataset:</strong> ViMedAQA (ACL 2024) + Vietnamese-Medical-QA (HuggingFace)</li>
+                <li><strong>Mô hình:</strong> ViT5-base fine-tuned + FAISS vector store</li>
+                <li><strong>Demo:</strong> Streamlit web app với giao diện Doctor Chatbot chuyên nghiệp</li>
+            </ul>
+
+            <div class="info-box">
+                <strong>Luồng hoạt động RAG:</strong> [Câu hỏi] → [Embedding (PhoBERT)] → [FAISS Retriever] → [Prompt Engineering] → [ViT5 Generator] → [Kết quả + Nguồn + Cảnh báo]
+            </div>
+        </section>
+
+        <!-- Section 2 -->
+        <section id="tech-stack">
+            <h2><i class="fas fa-layer-group"></i> 2. TECH STACK</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tầng</th>
+                            <th>Công nghệ</th>
+                            <th>Mục đích</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Ngôn ngữ</td><td>Python 3.10+</td><td>Toàn bộ pipeline</td></tr>
+                        <tr><td>Deep Learning</td><td>PyTorch + HuggingFace</td><td>Training & Inference</td></tr>
+                        <tr><td>Mô hình sinh</td><td>VietAI/vit5-base</td><td>Sinh câu trả lời tiếng Việt</td></tr>
+                        <tr><td>Embedding</td><td>vinai/phobert-base-v2</td><td>Vector hóa ngữ nghĩa</td></tr>
+                        <tr><td>Vector Store</td><td>FAISS</td><td>Tìm kiếm similarity nhanh</td></tr>
+                        <tr><td>Web App</td><td>Streamlit 1.x</td><td>Giao diện Chatbot</td></tr>
+                        <tr><td>Môi trường</td><td>Google Colab / Kaggle</td><td>Fine-tuning với GPU</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 3 -->
+        <section id="thu-muc">
+            <h2><i class="fas fa-folder-open"></i> 3. CẤU TRÚC THƯ MỤC</h2>
+            <div class="info-box success">
+                Tách biệt data, source code, notebooks, app và config. Script chạy độc lập từ root.
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Đường dẫn</th>
+                            <th>Mô tả</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>data/raw/</code></td><td>Dataset gốc chưa xử lý</td></tr>
+                        <tr><td><code>data/processed/</code></td><td>Data sau khi clean + segment</td></tr>
+                        <tr><td><code>notebooks/</code></td><td>EDA, Preprocess, Training, Eval notebooks</td></tr>
+                        <tr><td><code>src/retriever/</code></td><td>Hàm encode và FAISS store logic</td></tr>
+                        <tr><td><code>src/model/</code></td><td>Training loop và Inference logic</td></tr>
+                        <tr><td><code>app/</code></td><td>Streamlit UI và UI components</td></tr>
+                        <tr><td><code>docker/</code></td><td>Dockerfile, docker-compose.yml</td></tr>
+                        <tr><td><code>configs/</code></td><td>config.yaml (hyperparameters, paths)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 4 -->
+        <section id="du-lieu">
+            <h2><i class="fas fa-database"></i> 4. QUY TRÌNH XỬ LÝ DỮ LIỆU</h2>
+            <h3>4.1 Nguồn dữ liệu</h3>
+            <ul>
+                <li><strong>ViMedAQA (ACL 2024):</strong> ~2,000+ mẫu y khoa chất lượng cao.</li>
+                <li><strong>Vietnamese-Medical-QA:</strong> 9,335 mẫu từ eDoctor + Vinmec.</li>
+            </ul>
+
+            <h3>4.2 Pipeline làm sạch (preprocess.py)</h3>
+            <ol>
+                <li>Loại bỏ lời chào/noise (regex).</li>
+                <li>Chuẩn hóa Unicode (NFC) & Dấu câu.</li>
+                <li>Loại bỏ thông tin cá nhân (PII).</li>
+                <li>Word segmentation (VnCoreNLP).</li>
+                <li>Split train/val/test (80/10/10) stratified by topic.</li>
+            </ol>
+        </section>
+
+        <!-- Section 5 -->
+        <section id="huan-luyen">
+            <h2><i class="fas fa-brain"></i> 5. HUẤN LUYỆN MÔ HÌNH</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tham số</th>
+                            <th>Giá trị</th>
+                            <th>Ghi chú</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Base model</td><td>vit5-base</td><td>270M params</td></tr>
+                        <tr><td>Learning rate</td><td>5e-5</td><td>AdamW optimizer</td></tr>
+                        <tr><td>Batch size</td><td>8</td><td>Gradient accumulation=2</td></tr>
+                        <tr><td>Epochs</td><td>5</td><td>Early stopping monitor ROUGE-2</td></tr>
+                        <tr><td>Max length</td><td>512 / 256</td><td>Input / Output tokens</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="info-box">
+                <strong>Prompt:</strong> "hoi dap y te: [Q] \n\n Thong tin tham khao: [Context]"
+            </div>
+        </section>
+
+        <!-- Section 6 -->
+        <section id="danh-gia">
+            <h2><i class="fas fa-chart-line"></i> 6. ĐÁNH GIÁ MÔ HÌNH</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Ý nghĩa</th>
+                            <th>Ngưỡng tốt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>ROUGE-1/2/L</td><td>Overlap n-gram</td><td>> 0.40 / 0.20</td></tr>
+                        <tr><td>BERTScore F1</td><td>Ngữ nghĩa sâu</td><td>> 0.80</td></tr>
+                        <tr><td>Latency</td><td>Tốc độ phản hồi</td><td>< 3 giây</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <h3>6.3 Phân tích lỗi (Error Analysis)</h3>
+            <ul>
+                <li>Phân loại: Hallucination, Thiếu thông tin, Sai thuật ngữ.</li>
+                <li>So sánh hiệu quả RAG vs Non-RAG trên các câu hỏi khó.</li>
+            </ul>
+        </section>
+
+        <!-- Section 7 -->
+        <section id="demo">
+            <h2><i class="fas fa-desktop"></i> 7. GIAO DIỆN DEMO</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Thành phần</th>
+                            <th>Mô tả</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Header</td><td>Logo y tế + Tên app</td></tr>
+                        <tr><td>Sidebar</td><td>Chọn chuyên khoa, chỉnh top-K RAG</td></tr>
+                        <tr><td>Chat Area</td><td>Input box + Message history</td></tr>
+                        <tr><td>Evidence</td><td>Expander hiển thị nguồn trích dẫn</td></tr>
+                        <tr><td>Safety</td><td><strong>Cảnh báo an toàn y tế (Bắt buộc)</strong></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 8 -->
+        <section id="timeline">
+            <h2><i class="fas fa-calendar-alt"></i> 8. TIMELINE (4 TUẦN)</h2>
+            <div class="timeline-grid">
+                <div class="week-card">
+                    <div class="week-header"><span>Tuần 1</span> <span class="badge badge-primary">Data</span></div>
+                    <p>Thu thập, EDA và viết pipeline tiền xử lý. Build FAISS index.</p>
+                </div>
+                <div class="week-card">
+                    <div class="week-header"><span>Tuần 2</span> <span class="badge badge-primary">Training</span></div>
+                    <p>Fine-tune ViT5 trên GPU. Thử nghiệm các kiến trúc khác nhau.</p>
+                </div>
+                <div class="week-card">
+                    <div class="week-header"><span>Tuần 3</span> <span class="badge badge-primary">RAG & Eval</span></div>
+                    <p>Tích hợp RAG pipeline. Đánh giá chi tiết metrics và phân tích lỗi.</p>
+                </div>
+                <div class="week-card">
+                    <div class="week-header"><span>Tuần 4</span> <span class="badge badge-accent">Demo & Report</span></div>
+                    <p>Hoàn thiện UI Streamlit. Viết báo cáo cuối kỳ và đóng gói.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 10 (Risks) -->
+        <section id="rui-ro">
+            <h2><i class="fas fa-exclamation-triangle"></i> 10. QUẢN LÝ RỦI RO</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rủi ro</th>
+                            <th>Mức độ</th>
+                            <th>Giải pháp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Colab disconnect</td><td>Cao</td><td>Lưu checkpoint lên Drive thường xuyên</td></tr>
+                        <tr><td>Hallucination</td><td>Trung bình</td><td>Sử dụng RAG và disclaimer bắt buộc</td></tr>
+                        <tr><td>Inference chậm</td><td>Thấp</td><td>Dùng fp16 và caching mô hình</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="info-box danger">
+                <strong>Lưu ý:</strong> KHÔNG bao giờ thay thế lời khuyên của bác sĩ chuyên nghiệp.
+            </div>
+        </section>
+
+        <!-- Section 9 -->
+        <section id="dong-goi">
+            <h2><i class="fas fa-archive"></i> 9. ĐÓNG GÓI VÀ NỘP BÀI</h2>
+            <h3>9.1 Checklist nộp bài</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>✓</th>
+                            <th>Hạng mục</th>
+                            <th>Ghi chú</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>☐</td><td>Mã nguồn trên GitHub</td><td>Link trong báo cáo</td></tr>
+                        <tr><td>☐</td><td>Model weights</td><td>Drive hoặc HF Hub link</td></tr>
+                        <tr><td>☐</td><td>FAISS index file</td><td>Cần để chạy RAG</td></tr>
+                        <tr><td>☐</td><td>Báo cáo (PDF)</td><td>Mô tả chi tiết dự án</td></tr>
+                        <tr><td>☐</td><td>Docker Image/File</td><td>Đảm bảo chạy được trên máy giáo viên</td></tr>
+                        <tr><td>☐</td><td>README.md</td><td>Hướng dẫn cài đặt</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="info-box success">
+                <strong>Cấu trúc zip:</strong> MSSV1_MSSV2_MSSV3_ViMedQA.zip (Gồm /code, /report, /data_links)
+            </div>
+        </section>
+
+        <!-- Appendix -->
+        <section id="lenh-dung">
+            <h2><i class="fas fa-terminal"></i> PHỤ LỤC — LỆNH THƯỜNG DÙNG</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tác vụ</th>
+                            <th>Lệnh</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Cài dependencies</td><td><code>pip install -r requirements.txt</code></td></tr>
+                        <tr><td>Chạy training</td><td><code>python src/model/train.py --config configs/config.yaml</code></td></tr>
+                        <tr><td>Build FAISS index</td><td><code>python src/retriever/faiss_store.py --build</code></td></tr>
+                        <tr><td>Chạy Streamlit app</td><td><code>streamlit run app/streamlit_app.py</code></td></tr>
+                        <tr><td>Đánh giá model</td><td><code>python src/evaluation/metrics.py --split test</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer>
+
+            <p>&copy; 2025 ViMedQA Project Team. All rights reserved.</p>
+            <p>NLP Final Project Plan - Vietnamese Medical Virtual Assistant</p>
+        </footer>
+    </div>
+
+</body>
+</html>
