@@ -1,0 +1,13 @@
+\babel@toc {vietnamese}{}\relax 
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {3.1}{\ignorespaces Thống kê mô tả chi tiết bộ dữ liệu ViMedAQA thực tế}}{8}{table.caption.7}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {4.1}{\ignorespaces Cấu hình siêu tham số huấn luyện thực tế trong đề tài}}{12}{table.caption.9}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {5.1}{\ignorespaces Bảng đối sánh hiệu năng định lượng giữa các mô hình trên tập kiểm thử ViMedAQA}}{14}{table.caption.10}%
+\contentsline {table}{\numberline {5.2}{\ignorespaces Phân tích chi tiết chỉ số ROUGE-L của mô hình ViT5-base theo từng chủ đề y khoa}}{16}{table.caption.11}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {6.1}{\ignorespaces Kết quả Ablation Study về chiến lược giải mã trên tập kiểm định}}{18}{table.caption.13}%
+\addvspace {10\p@ }

@@ -1,0 +1,69 @@
+\chapter{Phương pháp nghiên cứu}
+\section{Tổng quan quy trình nghiên cứu}
+Đề tài được xây dựng trên một quy trình nghiên cứu gồm tám phase được thiết kế chặt chẽ và nhất quán theo đúng tài liệu thiết kế \texttt{PIPELINE\_ViMedAQA.md}:
+\begin{enumerate}
+    \item \textbf{Project Setup \& Exploratory Data Analysis (EDA):} Thiết lập môi trường huấn luyện, dọn dẹp dữ liệu trùng lặp và tiến hành khảo sát thống kê mô tả.
+    \item \textbf{Baseline Zero-shot (Gemini):} Thiết lập hiệu năng tham chiếu trên mô hình ngôn ngữ lớn thương mại thông qua Groq API \texttt{Llama-3.3-70B-versatile}.
+    \item \textbf{Fine-tuning ViT5:} Tinh chỉnh mô hình sinh chuỗi chuyên biệt tiếng Việt ViT5-base.
+    \item \textbf{Fine-tuning BARTpho:} Tinh chỉnh mô hình Sequence-to-Sequence BARTpho-word phục vụ đối sánh chéo.
+    \item \textbf{Unified Evaluation:} Đánh giá đồng bộ hiệu năng của tất cả các mô hình trên cùng tập test và cùng bộ độ đo chuẩn hóa.
+    \item \textbf{Error Analysis \& Ablation Study:} Phân tích định tính các lỗi tiêu biểu của mô hình và thực hiện nghiên cứu ablation study trên các chiến lược giải mã.
+    \item \textbf{Model Publishing:} Đóng gói và đẩy trọng số mô hình lên HuggingFace Hub.
+    \item \textbf{Gradio Web RAG Interface:} Xây dựng ứng dụng hỏi đáp kết hợp tìm kiếm ngữ cảnh y học và triển khai demo lên HuggingFace Spaces.
+\end{enumerate}
+
+\section{Kiến trúc sinh câu trả lời dựa trên Retrieval-Augmented Generation (RAG)}
+Để giải quyết triệt để hai thách thức lớn nhất của các mô hình ngôn ngữ nhỏ (SLMs) trong miền y khoa là giới hạn tri thức nền (parametric memory) và hiện tượng ảo tưởng thông tin (factual hallucination), đề tài triển khai hệ thống hỏi đáp theo kiến trúc \textbf{RAG (Retrieval-Augmented Generation)}. Kiến trúc này gồm hai cấu phần chính được liên kết chặt chẽ:
+
+\subsection{Cấu phần truy xuất tri thức (Retriever)}
+Khi nhận được một câu hỏi y tế $q$ từ người dùng, hệ thống không trực tiếp đưa vào bộ sinh mà trước hết tiến hành tìm kiếm các tài liệu ngữ cảnh tương thích từ kho tri thức y học độc lập (\texttt{medical\_corpus.json} gồm toàn bộ kiến thức chuyên ngành). Chúng tôi thiết kế hai cơ chế truy xuất bổ trợ lẫn nhau:
+\begin{itemize}
+    \item \textbf{Truy xuất thưa (Sparse Retrieval - BM25Okapi):} Sử dụng thuật toán BM25Okapi để tính toán độ tương quan dựa trên tần suất xuất hiện của các thực thể và từ khóa y học chính xác. Cơ chế này đạt hiệu năng rất cao khi câu hỏi chứa tên bệnh lý hoặc tên thuốc cụ thể.
+    \item \textbf{Truy xuất dày đặc (Dense Retrieval - Bi-Encoder + FAISS):} Sử dụng mô hình biểu diễn ngữ nghĩa chuyên biệt \texttt{bkai-foundation-models/vietnamese-bi-encoder} để ánh xạ câu hỏi và các tài liệu ngữ cảnh vào không gian vector $384$ chiều. Vector câu hỏi được chuẩn hóa L2 và tìm kiếm độ tương đồng Cosine hiệu năng cao bằng thư viện lập chỉ mục vector \textbf{FAISS IndexFlatIP} trên tập tài liệu đã được nhúng sẵn. Cơ chế này giúp nắm bắt ý nghĩa khái niệm sâu sắc ngay cả khi từ ngữ bề mặt không trùng khớp.
+\end{itemize}
+Kết quả của cấu phần retriever là top-$K$ ngữ cảnh y học có độ tương đồng cao nhất ($C = \{c_1, c_2, \dots, c_K\}$, mặc định $K=3$).
+
+\subsection{Cấu phần sinh câu trả lời (Generator)}
+Chuỗi ngữ cảnh được thu thập $C$ được ghép nối trực tiếp với câu hỏi ban đầu $q$ để tạo ra chuỗi đầu vào hoàn chỉnh:
+\begin{equation}
+    X = \text{``question: } q \text{ context: } c_1 \ c_2 \ \dots \ c_K\text{''}
+\end{equation}
+Chuỗi $X$ được tokenizer phân tách thành chuỗi token ID và đưa vào mô hình Seq2Seq đã được tinh chỉnh (như ViT5-base) để tự hồi quy sinh ra câu trả lời y tế chuẩn xác $A = \{a_1, a_2, \dots, a_T\}$.
+
+\section{Quy trình huấn luyện và tối ưu hóa Seq2Seq}
+Quá trình tinh chỉnh (fine-tuning) hai mô hình chính ViT5-base \cite{phan2022vit5} và BARTpho-word \cite{tran2021bartpho} sử dụng hàm mất mát âm log-likelihood (Negative Log-Likelihood - NLL) trên từng token của chuỗi đáp án mục tiêu:
+\begin{equation}
+  \mathcal{L}(\theta) = -\sum_{t=1}^{T}\log p_\theta(a_t \mid a_{<t}, X)
+\end{equation}
+Trong đó $\theta$ đại diện cho các trọng số mạng nơ-ron được tối ưu hóa.
+
+Để đảm bảo quá trình đối sánh chéo diễn ra công bằng, chúng tôi thiết kế quy trình huấn luyện đồng bộ về mặt kích thước batch hiệu dụng (Effective Batch Size), thuật toán tối ưu hóa và số lượng epoch huấn luyện. Tuy nhiên, do kiến trúc tokenizer và dung lượng bộ nhớ của hai mô hình có sự khác biệt lớn, các siêu tham số kỹ thuật được tinh chỉnh linh hoạt nhằm tránh lỗi tràn bộ nhớ (Out of Memory - OOM) trên GPU Nvidia T4 ($16$GB VRAM) của Google Colab. Bảng~\ref{tab:training_configs} tổng hợp chi tiết cấu hình huấn luyện thực tế của các mô hình.
+
+\begin{table}[H]
+\centering
+\caption{Cấu hình siêu tham số huấn luyện thực tế trong đề tài}
+\label{tab:training_configs}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcc}
+\toprule
+\textbf{Siêu tham số} & \textbf{Mô hình chính (ViT5-base)} & \textbf{Mô hình đối sánh (BARTpho-word)} \\
+\midrule
+Kiến trúc cơ sở & T5 (Text-to-Text) \cite{raffel2020t5} & BART (Seq2Seq Autoencoder) \cite{lewis2020bart} \\
+Dung lượng mô hình & 220M parameters & 228M parameters \\
+Kích thước Batch huấn luyện & per-device batch size = 4 & per-device batch size = 2 \\
+Gradient Accumulation Steps & 4 steps & 8 steps \\
+\textbf{Batch size hiệu dụng} & \textbf{16} & \textbf{16} \\
+Tối ưu hóa (Optimizer) & AdamW ($\beta_1=0.9, \beta_2=0.999$) & AdamW ($\beta_1=0.9, \beta_2=0.999$) \\
+Tốc độ học (Learning Rate) & $3 \times 10^{-4}$ & $3 \times 10^{-4}$ \\
+Lịch trình giảm tốc độ học & Linear Warmup ($10\%$ steps) & Linear Warmup ($10\%$ steps) \\
+Số Epoch huấn luyện & 5 epochs & 5 epochs \\
+Độ dài đầu vào cực đại & 512 tokens & 1024 tokens \\
+Độ dài đầu ra cực đại & 128 tokens & 256 tokens \\
+Kiểu dữ liệu số thực & mixed precision (\texttt{fp16}) & mixed precision (\texttt{fp16}) \\
+Gradient Checkpointing & Tắt & \textbf{Bật (Bắt buộc để tránh OOM)} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+Việc duy trì kích thước batch hiệu dụng bằng $16$ giúp hướng gradient di chuyển ổn định trong không gian tham số, hỗ trợ cả hai mô hình hội tụ tốt. Cơ chế \textbf{Gradient Checkpointing} được kích hoạt bắt buộc cho BARTpho-word để đánh đổi tài nguyên tính toán lấy dung lượng bộ nhớ, cho phép mô hình xử lý chuỗi đầu vào dài lên tới $1024$ tokens mà không gặp sự cố phần cứng. Quá trình huấn luyện cũng tích hợp cơ chế lưu checkpoint tự động và lưu nhật ký huấn luyện định kỳ lên Google Drive để phòng ngừa rủi ro mất kết nối đột ngột trong môi trường Colab. Checkpoint cuối cùng được lựa chọn dựa trên chỉ số tổn thất kiểm định (\texttt{eval\_loss}) thấp nhất trên tập validation.

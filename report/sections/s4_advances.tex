@@ -1,0 +1,80 @@
+\chapter{Thực nghiệm và đánh giá}
+\section{Thiết lập thực nghiệm}
+Tất cả các thực nghiệm đánh giá hiệu năng đều được thực hiện nhất quán trên cùng tập kiểm thử độc lập (\texttt{test.json}) gồm $2.356$ mẫu dữ liệu. Đối với các mô hình fine-tuned (ViT5-base và BARTpho-word), quá trình suy luận (inference) được thực hiện với chiến lược giải mã mặc định là Beam Search với kích thước chùm $B=4$ để đảm bảo chất lượng sinh tối ưu. Đối với baseline zero-shot (Llama-3.3-70B-versatile), chúng tôi gọi API Groq với cấu hình nhiệt độ (temperature) bằng $0.0$ nhằm loại bỏ tính ngẫu nhiên, tập trung hoàn toàn vào khả năng suy luận logic y khoa. Toàn bộ các kết quả dự đoán (prediction) được xuất ra tệp định dạng JSON đồng bộ để tính toán các độ đo định lượng mà không bị sai lệch về mặt kỹ thuật.
+
+\section{Các độ đo đánh giá định lượng}
+Để đánh giá toàn diện năng lực của các mô hình từ mức độ trùng khớp từ ngữ bề mặt đến độ tương đồng ngữ nghĩa sâu sắc, đề tài sử dụng ba nhóm độ đo tiêu chuẩn trong xử lý ngôn ngữ tự nhiên:
+
+\subsection{ROUGE (Recall-Oriented Understudy for Gisting Evaluation)}
+\cite{lin2004rouge}
+ROUGE đánh giá mức độ trùng khớp của chuỗi văn bản thông qua ba chỉ số chính:
+\begin{itemize}
+    \item \textbf{ROUGE-1:} Tính toán tỉ lệ trùng khớp unigram (từ đơn), đo lường mức độ bảo toàn các thực thể y học đơn lẻ.
+    \item \textbf{ROUGE-2:} Tính toán tỉ lệ trùng khớp bigram (cặp từ liền kề), phản ánh khả năng duy trì các thuật ngữ ghép y khoa chính xác.
+    \item \textbf{ROUGE-L:} Dựa trên chuỗi con chung dài nhất (Longest Common Subsequence - LCS), phản ánh khả năng bảo toàn cấu trúc cú pháp tự nhiên của câu trả lời.
+\end{itemize}
+
+\subsection{BLEU (Bilingual Evaluation Understudy)}
+\cite{papineni2002bleu}
+BLEU-4 đo lường độ chính xác n-gram (với $n$ từ $1$ đến $4$) có phạt độ dài (brevity penalty). Chỉ số này phản ánh độ chính xác của các phân đoạn văn bản được sinh ra so với câu tham chiếu mục tiêu.
+
+\subsection{BERTScore}
+\cite{zhang2020bertscore}
+BERTScore tận dụng biểu diễn ngữ nghĩa dày đặc của mô hình ngôn ngữ lớn tiền huấn luyện (\texttt{multilingual-BERT}) để tính toán độ tương đồng cosine giữa các token biểu diễn. BERTScore có ưu thế tuyệt đối trong bài toán sinh văn bản trừu tượng vì nó ghi nhận chính xác các câu trả lời đồng nghĩa mặc dù sử dụng từ ngữ bề mặt khác biệt hoàn toàn với câu tham chiếu.
+
+\section{Bảng so sánh kết quả thực nghiệm tổng thể}
+Kết quả thực nghiệm định lượng chi tiết của các mô hình trên tập kiểm thử được tổng hợp và đối sánh tại Bảng~\ref{tab:comparison}.
+
+\begin{table}[H]
+\centering
+\caption{Bảng đối sánh hiệu năng định lượng giữa các mô hình trên tập kiểm thử ViMedAQA}
+\label{tab:comparison}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Mô hình} & \textbf{ROUGE-1} & \textbf{ROUGE-2} & \textbf{ROUGE-L} & \textbf{BLEU-4} & \textbf{BERTScore F1} \\
+\midrule
+Llama-3.3-70B-versatile (zero-shot) & 0,7285 & \textbf{0,6257} & 0,6664 & 0,4684 & \textbf{0,8757} \\
+ViT5-base (fine-tuned) & 0,7318 & 0,6153 & 0,6680 & \textbf{0,5005} & 0,8752 \\
+BARTpho-word (fine-tuned) & \textbf{0,7327} & 0,6185 & \textbf{0,6681} & 0,2794 & 0,8230 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\section{Biện luận khoa học sâu sắc về kết quả thực nghiệm}
+Từ kết quả tại Bảng~\ref{tab:comparison}, chúng tôi rút ra ba luận điểm phân tích học thuật quan trọng:
+
+\subsection{Đặc tính phân tách từ của Tokenizer tác động lên độ đo BLEU-4}
+Một quan sát cực kỳ nổi bật là mặc dù mô hình \textbf{BARTpho-word} đạt điểm số ROUGE-1 (\textbf{0,7327}) và ROUGE-L (\textbf{0,6681}) cao nhất trong tất cả các mô hình, chỉ số BLEU-4 của nó lại sụt giảm nghiêm trọng xuống mức cực thấp (\textbf{0,2794}), so với mức \textbf{0,5005} của ViT5-base. Đây là một hiện tượng kỹ thuật đặc thù cần được giải thích rõ ràng. 
+
+BARTpho-word được tiền huấn luyện trên dữ liệu tiếng Việt đã được phân tách từ bằng công cụ tokenizer mức từ (word-level). Do đó, câu trả lời sinh ra bởi BARTpho chứa các dấu gạch dưới (\texttt{\_}) để liên kết các âm tiết trong một từ ghép (ví dụ: \texttt{chấn\_thương\_sọ\_não}, \texttt{tuyến\_yên}). Tuy nhiên, bộ tính toán độ đo BLEU-4 chuẩn hóa lại thực hiện tách từ dựa trên khoảng trắng mặc định mà không có cơ chế xử lý dấu gạch dưới y khoa. Sự lệch pha này làm mất đi khả năng trùng khớp n-gram cao (từ 3-gram đến 4-gram), dẫn đến điểm BLEU-4 bị phạt nặng nề mặc dù về mặt ngữ nghĩa và cấu trúc câu (phản ánh qua ROUGE-L), BARTpho-word hoàn toàn tương đương, thậm chí nhỉnh hơn ViT5-base. Phát hiện này nhấn mạnh rằng không nên áp dụng BLEU-4 một cách rập khuôn để đánh giá các mô hình tiếng Việt sử dụng tokenizer cấp từ nếu không có bước tiền xử lý chuẩn hóa khoảng trắng ngược lại.
+
+\subsection{Ưu thế ngữ nghĩa của mô hình ngôn ngữ lớn (LLM)}
+Mặc dù là mô hình zero-shot hoàn toàn không được huấn luyện trên dữ liệu ViMedAQA, \textbf{Llama-3.3-70B-versatile} đạt điểm số BERTScore F1 cao nhất (\textbf{0,8757}) và ROUGE-2 vượt trội (\textbf{0,6257}). Điều này chứng minh sức mạnh của tri thức nền tảng y học khổng lồ (parametric knowledge) bên trong mô hình $70$ tỷ tham số. Llama-3.3 có khả năng diễn đạt các khái niệm y học cực kỳ chính xác và linh hoạt. Tuy nhiên, do tính chất zero-shot, phong cách hành văn của nó không bám sát hoàn hảo cấu trúc câu tham chiếu của ViMedAQA, dẫn đến điểm ROUGE-1 và ROUGE-L thấp hơn một chút so với hai mô hình sinh chuỗi được fine-tune trực tiếp.
+
+\subsection{Năng lực vượt trội của ViT5-base trong bài toán sinh câu trả lời tiếng Việt}
+Mô hình \textbf{ViT5-base} thể hiện sự cân bằng hoàn hảo trên tất cả các độ đo. Nó đạt điểm BLEU-4 cao nhất (\textbf{0,5005}) và chỉ số BERTScore F1 (\textbf{0,8752}) tương đương với siêu mô hình Llama-3.3-70B. Điều này chứng minh rằng việc tinh chỉnh một mô hình nhỏ chuyên biệt tiếng Việt ($220$M tham số) trên tập dữ liệu nội miền chất lượng cao hoàn toàn có khả năng tiệm cận hoặc vượt qua các mô hình ngôn ngữ khổng lồ thương mại trong một tác vụ chuyên biệt, tạo tiền đề cho việc triển khai ứng dụng y khoa chi phí thấp và bảo mật dữ liệu cao.
+
+\section{Phân tích hiệu năng chi tiết theo chủ đề y khoa}
+Để xác định mức độ ổn định của mô hình chính ViT5-base trên các miền tri thức y khoa khác nhau, chúng tôi tiến hành phân tích hiệu năng chi tiết theo từng lớp chủ đề y học độc lập. Kết quả phân tích được thể hiện tại Bảng~\ref{tab:per_topic}.
+
+\begin{table}[H]
+\centering
+\caption{Phân tích chi tiết chỉ số ROUGE-L của mô hình ViT5-base theo từng chủ đề y khoa}
+\label{tab:per_topic}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcc}
+\toprule
+\textbf{Chủ đề y học (Topic ID)} & \textbf{Số lượng mẫu kiểm thử ($n$)} & \textbf{ROUGE-L đạt được} \\
+\midrule
+Chủ đề 0 - diseases & 229 & 0,6528 \\
+Chủ đề 1 - medicine & 780 & 0,6274 \\
+Chủ đề 2 - drug & 588 & \textbf{0,7007} \\
+Chủ đề 3 - body-part & 751 & 0,6920 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+Bảng~\ref{tab:per_topic} chỉ ra rằng hiệu năng có sự dao động nhẹ giữa các chủ đề. \textbf{Chủ đề 2} đạt kết quả cao nhất (\textbf{0,7007}), tiếp theo là \textbf{Chủ đề 3} (\textbf{0,6920}). Ngược lại, \textbf{Chủ đề 1} mặc dù có số lượng mẫu rất lớn ($780$ mẫu) nhưng chỉ đạt chỉ số ROUGE-L thấp nhất (\textbf{0,6274}). Điều này chứng minh rằng độ khó của các chủ đề y khoa không chỉ phụ thuộc vào số lượng dữ liệu huấn luyện, mà phụ thuộc nhiều vào mức độ phức tạp của các thuật ngữ chuyên ngành và tính chất trừu tượng của câu trả lời trong chuyên khoa đó (ví dụ: các câu hỏi chẩn đoán và điều trị lâm sàng phức tạp ở Chủ đề 1 luôn đòi hỏi sự lập luận phức tạp hơn so với việc mô tả công dụng dược phẩm hoặc vị học cổ truyền đơn giản ở Chủ đề 2). Việc nhận diện được các chuyên khoa yếu này giúp định hướng cho các nghiên cứu tiếp theo trong việc thu thập thêm dữ liệu chuyên sâu để bù đắp khoảng trống tri thức.

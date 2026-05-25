@@ -1,0 +1,37 @@
+\chapter{Cơ sở lý thuyết và công trình liên quan}
+\section{Bài toán hỏi đáp trừu tượng y khoa}
+Cho câu hỏi y tế $q$, ngữ cảnh y khoa liên quan $c$ và câu trả lời y tế tham chiếu $a$. Trong bài toán hỏi đáp trừu tượng, mục tiêu của mô hình là học phân phối xác suất có điều kiện trên chuỗi các token của câu trả lời $a = (a_1, a_2, \dots, a_T)$:
+\begin{equation}
+  p(a \mid q, c) = \prod_{t=1}^{T} p(a_t \mid a_{<t}, q, c),
+\end{equation}
+trong đó $a_{<t} = (a_1, \dots, a_{t-1})$ là các token đã được sinh ra trước thời điểm $t$. 
+
+Khác hoàn toàn với bài toán trích xuất (chỉ tìm hai chỉ số vị trí bắt đầu và kết thúc của câu trả lời trong ngữ cảnh), mô hình trừu tượng phải tự sinh chuỗi (sequence generation) bằng cách chuyển dịch không gian ngữ nghĩa từ đầu vào $x = [q; c]$ sang đầu ra $y = a$. Do đó, mô hình cần học cách mã hóa ngữ nghĩa đầu vào và giải mã tuần tự để tạo ra câu trả lời tự nhiên.
+
+\section{Kiến trúc Transformer và Cơ chế Attention}
+Kiến trúc Transformer \cite{vaswani2017attention} dựa trên cơ chế tự chú ý (self-attention) đóng vai trò nền tảng cho việc biểu diễn thông tin ngữ nghĩa dài. Cơ chế attention được định nghĩa thông qua ma trận truy vấn $Q$, khóa $K$ và giá trị $V$:
+\begin{equation}
+  \operatorname{Attention}(Q, K, V) = \operatorname{softmax}\left(\frac{QK^\top}{\sqrt{d_k}}\right)V,
+\end{equation}
+trong đó $d_k$ là chiều vectơ của khóa (dimension key) đóng vai trò như một thừa số tỷ lệ (scaling factor) nhằm tránh hiện tượng gradient bị triệt tiêu khi tích vô hướng có giá trị quá lớn.
+
+Để mô hình hóa nhiều mối quan hệ ngữ nghĩa ở các không gian biểu diễn khác nhau, Transformer mở rộng thành cơ chế chú ý nhiều đầu (Multi-Head Attention - MHA):
+\begin{equation}
+  \operatorname{MultiHead}(Q, K, V) = \operatorname{Concat}(\operatorname{head}_1, \dots, \operatorname{head}_h)W^O,
+\end{equation}
+\begin{equation}
+  \text{trong đó: } \operatorname{head}_i = \operatorname{Attention}(QW_i^Q, KW_i^K, VW_i^V),
+\end{equation}
+và các ma trận $W_i^Q \in \mathbb{R}^{d_{model} \times d_k}$, $W_i^K \in \mathbb{R}^{d_{model} \times d_k}$, $W_i^V \in \mathbb{R}^{d_{model} \times d_v}$, $W^O \in \mathbb{R}^{h d_v \times d_{model}}$ là các tham số chiếu học được trong quá trình huấn luyện.
+
+\section{Kiến trúc sinh chuỗi Sequence-to-Sequence}
+Mô hình Sequence-to-Sequence (Seq2Seq) trong đề tài bao gồm một bộ mã hóa (Encoder) và một bộ giải mã (Decoder). Bộ mã hóa nhận đầu vào $x$ và sinh ra biểu diễn ẩn liên tục $z = (z_1, \dots, z_n)$. Bộ giải mã nhận $z$ và sinh tuần tự từng token đầu ra $y_t$ dựa trên các token đã sinh $y_{<t}$ và biểu diễn $z$ thông qua cơ chế chú ý chéo (Cross-Attention).
+
+\subsection{ViT5-base}
+ViT5 \cite{phan2022vit5} là mô hình ngôn ngữ dựa trên kiến trúc T5 (Text-to-Text Transfer Transformer) tiền huấn luyện chuyên biệt cho tiếng Việt. ViT5 sử dụng kiến trúc Encoder-Decoder tiêu chuẩn với các khối chuẩn hóa Layer Normalization cải tiến (như RMSNorm) và mã hóa vị trí tương đối. ViT5 được tiền huấn luyện trên lượng dữ liệu tiếng Việt khổng lồ với hai tác vụ chính: điền chỗ trống (span corruption) và sinh văn bản tự do. ViT5-base với khoảng 270 triệu tham số được chứng minh đạt hiệu năng SOTA trên nhiều tác vụ sinh chuỗi tiếng Việt như tóm tắt văn bản và dịch máy.
+
+\subsection{BARTpho-word}
+BARTpho \cite{tran2021bartpho} là mô hình Sequence-to-Sequence đầu tiên được tiền huấn luyện cho tiếng Việt dựa trên kiến trúc BART (Bidirectional and Auto-Regressive Transformers). BARTpho kế thừa khả năng mã hóa hai chiều của BERT và khả năng tự hồi quy giải mã của GPT. Phiên bản BARTpho-word (khoảng 396 triệu tham số) được tiền huấn luyện trên dữ liệu tiếng Việt đã được tách từ (word-segmentation). Việc sử dụng tokenizer cấp từ giúp BARTpho biểu diễn tốt các từ ghép tiếng Việt và giảm thiểu chiều dài chuỗi đầu vào, tối ưu hóa khả năng hiểu ngữ nghĩa y khoa phức tạp.
+
+\subsection{Đường cơ sở Zero-shot và Mô hình Đa ngôn ngữ}
+Đường cơ sở Llama-3.3-70B-versatile đại diện cho dòng mô hình ngôn ngữ lớn (LLM) chỉ chứa bộ giải mã (Decoder-only) tiên tiến nhất hiện nay, được chạy dưới dạng zero-shot để kiểm chứng năng lực giải quyết bài toán y khoa chuyên sâu khi không có bất kỳ bước tinh chỉnh tham số nào. Ngoài ra, mô hình mT5-base \cite{xue2021mt5} (kiến trúc T5 đa ngôn ngữ, ~580M tham số) được đưa vào nghiên cứu mở rộng nhằm làm sáng tỏ lợi ích của tiền huấn luyện chuyên biệt đơn ngữ (ViT5) so với tiền huấn luyện đa ngôn ngữ diện rộng.

@@ -1,0 +1,15 @@
+\chapter{Kết luận và hướng phát triển}
+\section{Kết luận}
+Đề tài đã hoàn thành xuất sắc mục tiêu xây dựng một hệ thống hỏi đáp tự động y khoa trừu tượng tiếng Việt chất lượng cao trên bộ dữ liệu ViMedAQA \cite{tran2024vimedaqa}. Thông qua một quy trình nghiên cứu chuẩn hóa và đồng bộ gồm tám phase (từ EDA dữ liệu, xây dựng baseline, fine-tuning mô hình sinh chuỗi, đến đóng gói công bố và triển khai ứng dụng), chúng tôi đã chứng minh năng lực thực tiễn vượt trội của các mô hình ngôn ngữ nhỏ (SLMs) chuyên biệt tiếng Việt khi được huấn luyện nội miền.
+
+Hai mô hình chính là \textbf{ViT5-base} và \textbf{BARTpho-word} sau khi tinh chỉnh đều đạt hiệu năng rất cao, tiệm cận và thậm chí vượt qua siêu mô hình thương mại Llama-3.3-70B zero-shot ở một số chỉ số sinh chuỗi cụ thể. Đặc biệt, ViT5-base đạt điểm cân bằng lý tưởng trên cả độ đo trùng khớp từ ngữ bề mặt (BLEU-4 đạt \textbf{0,5005}, ROUGE-L đạt \textbf{0,6680}) và độ tương đồng ngữ nghĩa ngữ cảnh (BERTScore F1 đạt \textbf{0,8752}). Nghiên cứu cũng đã vạch rõ những đặc thù kỹ thuật của tokenizer và các giới hạn cố hữu của hệ đo lường tự động truyền thống đối với tiếng Việt chuyên ngành, đồng thời phát hiện và phân loại chi tiết ba failure modes y khoa phổ biến là lỗi lặp từ vô hạn, lỗi ảo tưởng thông tin và lỗi chi tiết quá mức. 
+
+Cuối cùng, hệ thống đã được tích hợp thành công vào cấu trúc Dense RAG (kết hợp Bi-Encoder nhúng ngữ nghĩa và lập chỉ mục không gian vector FAISS tốc độ cao) và triển khai dưới dạng ứng dụng tương tác Gradio trực quan trên HuggingFace Spaces, tạo ra một sản phẩm hoàn thiện, có giá trị ứng dụng thực tiễn lớn trong việc hỗ trợ tra cứu thông tin y khoa ban đầu cho cộng đồng.
+
+\section{Hướng phát triển trong tương lai}
+Để nâng cao độ tin cậy và mở rộng quy mô ứng dụng của hệ thống, chúng tôi đề xuất ba định hướng nghiên cứu chuyên sâu tiếp theo:
+\begin{enumerate}
+    \item \textbf{Cơ chế RAG lai ghép (Hybrid Retrieval) và tối ưu hóa ngữ cảnh (Reranking):} Kết hợp sức mạnh bổ trợ lẫn nhau của cơ chế truy xuất thưa (BM25Okapi) và truy xuất dày đặc (Dense Bi-Encoder). Đồng thời, tích hợp mô hình đánh giá lại độ tương quan (Cross-Encoder Reranker) để chọn lọc và sắp xếp thứ tự ngữ cảnh y học chính xác nhất, giảm thiểu tối đa tạp âm và thông tin dư thừa đưa vào bộ sinh.
+    \item \textbf{Đánh giá an toàn y khoa và giảm thiểu ảo tưởng triệt để (Fact-checking \& Medical Alignment):} Xây dựng cấu phần hậu xử lý tự động kiểm chứng nguồn thông tin y học sinh ra đối chiếu trực tiếp với ngữ cảnh gốc để phát hiện và ngăn chặn kịp thời các thông tin ảo tưởng y học nguy hiểm. Áp dụng kỹ thuật tối ưu hóa dựa trên phản hồi của chuyên gia y tế (RLHF - Reinforcement Learning from Human Feedback) để tinh chỉnh hành vi của mô hình tiệm cận với đạo đức và quy chuẩn lâm sàng.
+    \item \textbf{Mở rộng dữ liệu đa chủ đề và tích hợp mô hình ngôn ngữ lớn nội địa:} Thu thập thêm dữ liệu chuyên sâu cho các chuyên khoa khó (như nhãn chủ đề y khoa Topic 1) và tiếp tục thực nghiệm tinh chỉnh trên các mô hình ngôn ngữ lớn mã nguồn mở có tri thức tiếng Việt mạnh mẽ hơn (như PhoGPT hoặc Vistral) nhằm tăng cường năng lực suy luận y học đa bước phức tạp.
+\end{enumerate}

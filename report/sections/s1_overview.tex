@@ -1,0 +1,27 @@
+\chapter{Giới thiệu}
+\section{Bối cảnh và động lực}
+Trong những năm gần đây, sự phát triển vượt bậc của các mô hình ngôn ngữ lớn dựa trên kiến trúc Transformer \cite{vaswani2017attention} đã mở ra nhiều hướng nghiên cứu mới trong lĩnh vực xử lý ngôn ngữ tự nhiên (NLP), đặc biệt là trong miền y khoa. Các hệ thống hỏi đáp y khoa tự động đóng vai trò vô cùng quan trọng trong việc hỗ trợ các chuyên gia y tế tra cứu thông tin nhanh chóng, đồng thời giúp bệnh nhân tiếp cận các kiến thức chăm sóc sức khỏe chính thống, đáng tin cậy. 
+
+Tuy nhiên, việc xây dựng một hệ thống hỏi đáp y khoa hiệu quả đối với tiếng Việt vẫn đang đối mặt với nhiều thách thức lớn do tính chất khan hiếm tài nguyên ngôn ngữ và sự phức tạp của thuật ngữ chuyên ngành. Phần lớn các nghiên cứu hỏi đáp trước đây tại Việt Nam tập trung vào bài toán hỏi đáp trích xuất (Extractive Question Answering), trong đó câu trả lời bắt buộc phải là một đoạn văn bản (span) nằm nguyên văn trong ngữ cảnh cung cấp sẵn. Phương pháp này bộc lộ hạn chế lớn khi áp dụng vào thực tế y khoa, nơi người bệnh thường cần những câu trả lời được tổng hợp, diễn giải một cách ngắn gọn, dễ hiểu và tự nhiên thay vì một đoạn văn bản kỹ thuật phức tạp được trích xuất cứng nhắc.
+
+Nhằm giải quyết hạn chế đó, bộ dữ liệu ViMedAQA \cite{tran2024vimedaqa} đã được giới thiệu tại Hội nghị ACL 2024 như một bộ dữ liệu tiên phong cho bài toán hỏi đáp y khoa trừu tượng (Abstractive Question Answering) bằng tiếng Việt. Trong bài toán hỏi đáp trừu tượng, mô hình phải tự sinh ra (generate) câu trả lời bằng cách diễn giải, Paraphrase và tổng hợp thông tin từ ngữ cảnh y khoa được cung cấp. Do đó, việc áp dụng các kiến trúc sinh chuỗi từ văn bản sang văn bản (Sequence-to-Sequence) là cực kỳ cấp thiết để mô hình hóa trọn vẹn bản chất của bài toán này.
+
+\section{Mục tiêu đề tài}
+Đề tài nghiên cứu này hướng đến việc thiết lập, huấn luyện và đánh giá một quy trình thực nghiệm (pipeline) toàn diện cho bài toán hỏi đáp y khoa trừu tượng tiếng Việt trên bộ dữ liệu ViMedAQA \cite{tran2024vimedaqa}. Cụ thể, các mục tiêu chi tiết bao gồm:
+\begin{itemize}
+  \item Khảo sát sâu sắc và chuẩn hóa dữ liệu y khoa từ bộ dữ liệu ViMedAQA, xây dựng chiến lược chia tập huấn luyện (Train), kiểm định (Validation), và kiểm thử (Test) một cách đồng nhất, phân tầng (stratified) theo chủ đề.
+  \item Tinh chỉnh (fine-tuning) hai mô hình sinh ngôn ngữ chuyên biệt cho tiếng Việt là ViT5-base và BARTpho-word trên tập dữ liệu y khoa, tối ưu hóa các siêu tham số huấn luyện để đạt được hiệu năng cao nhất trong điều kiện tài nguyên tính toán giới hạn.
+  \item Xây dựng một baseline zero-shot sử dụng mô hình ngôn ngữ lớn Llama-3.3-70B-versatile thông qua Groq API để tạo điểm tham chiếu thực tế cho việc đánh giá sức mạnh của phương pháp tinh chỉnh chuyên biệt so với mô hình tổng quát.
+  \item Thực hiện phân tích định lượng toàn diện bằng các độ đo tự động chuẩn quốc tế (ROUGE-1/2/L, BLEU-4, BERTScore F1) kết hợp với phân tích định tính các nhóm lỗi sinh văn bản thực tế để chỉ ra các thách thức khoa học còn tồn tại.
+  \item Phát triển ứng dụng Web Gradio tích hợp cơ chế Retrieval-Augmented Generation (RAG) và triển khai trên môi trường đám mây công khai để chứng minh tính thực tiễn của đề tài.
+\end{itemize}
+
+\section{Đóng góp chính}
+Các đóng góp chính của đề tài nghiên cứu này bao gồm:
+\begin{itemize}
+  \item Đề xuất một khung thực nghiệm chuẩn hóa, có tính nhất quán cao cho bài toán hỏi đáp trừu tượng y khoa tiếng Việt, giải quyết bài toán OOM (Out Of Memory) trên phần cứng giới hạn (GPU T4) bằng các kỹ thuật tích lũy gradient (gradient accumulation) và độ dài cắt tỉa phù hợp.
+  \item Cung cấp bảng so sánh thực nghiệm chi tiết và công bằng giữa hai họ mô hình Sequence-to-Sequence phổ biến (T5 vs BART) được tối ưu riêng cho tiếng Việt trên cùng một tập dữ liệu y khoa chuyên biệt.
+  \item Minh chứng thực nghiệm rằng mô hình nhỏ được tinh chỉnh chuyên biệt (ViT5-base, ~270M tham số) hoàn toàn có khả năng cạnh tranh sòng phẳng hoặc thậm chí vượt trội hơn mô hình ngôn ngữ lớn tổng quát (Llama-3.3-70B) trên một số độ đo trùng khớp chuỗi (BLEU-4).
+  \item Thiết lập một quy trình phân tích lỗi hệ thống, phân loại cụ thể các hiện tượng ảo tưởng thông tin (factual hallucination) và lặp từ trong sinh câu y khoa, đặt nền móng cho các nghiên cứu cải thiện độ an toàn y tế của LLM.
+  \item Triển khai thành công hệ thống demo RAG thực tế chạy trên HuggingFace Spaces, cho phép người dùng hỏi đáp y khoa mà không cần tự cung cấp ngữ cảnh đầu vào nhờ cơ chế truy xuất tự động BM25 trên kho tri thức y học.
+\end{itemize}

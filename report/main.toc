@@ -1,0 +1,50 @@
+\babel@toc {vietnamese}{}\relax 
+\contentsline {chapter}{Lời cam đoan}{i}{chapter*.1}%
+\contentsline {chapter}{Lời cảm ơn}{ii}{chapter*.2}%
+\contentsline {chapter}{Tóm tắt}{vii}{chapter*.6}%
+\contentsline {chapter}{\numberline {1}Giới thiệu}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Bối cảnh và động lực}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Mục tiêu đề tài}{1}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Đóng góp chính}{2}{section.1.3}%
+\contentsline {chapter}{\numberline {2}Cơ sở lý thuyết và công trình liên quan}{4}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Bài toán hỏi đáp trừu tượng y khoa}{4}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Kiến trúc Transformer và Cơ chế Attention}{4}{section.2.2}%
+\contentsline {section}{\numberline {2.3}Kiến trúc sinh chuỗi Sequence-to-Sequence}{5}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}ViT5-base}{5}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}BARTpho-word}{5}{subsection.2.3.2}%
+\contentsline {subsection}{\numberline {2.3.3}Đường cơ sở Zero-shot và Mô hình Đa ngôn ngữ}{5}{subsection.2.3.3}%
+\contentsline {chapter}{\numberline {3}Dữ liệu ViMedAQA}{7}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Mô tả bộ dữ liệu}{7}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Định dạng dữ liệu đầu vào cho Seq2Seq}{7}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Khảo sát dữ liệu thực tế và phân tích EDA}{8}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Chia tập dữ liệu phân tầng (Stratified Split)}{9}{section.3.4}%
+\contentsline {chapter}{\numberline {4}Phương pháp nghiên cứu}{10}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Tổng quan quy trình nghiên cứu}{10}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Kiến trúc sinh câu trả lời dựa trên Retrieval-Augmented Generation (RAG)}{10}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Cấu phần truy xuất tri thức (Retriever)}{11}{subsection.4.2.1}%
+\contentsline {subsection}{\numberline {4.2.2}Cấu phần sinh câu trả lời (Generator)}{11}{subsection.4.2.2}%
+\contentsline {section}{\numberline {4.3}Quy trình huấn luyện và tối ưu hóa Seq2Seq}{11}{section.4.3}%
+\contentsline {chapter}{\numberline {5}Thực nghiệm và đánh giá}{13}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Thiết lập thực nghiệm}{13}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Các độ đo đánh giá định lượng}{13}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}ROUGE (Recall-Oriented Understudy for Gisting Evaluation)}{13}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}BLEU (Bilingual Evaluation Understudy)}{14}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}BERTScore}{14}{subsection.5.2.3}%
+\contentsline {section}{\numberline {5.3}Bảng so sánh kết quả thực nghiệm tổng thể}{14}{section.5.3}%
+\contentsline {section}{\numberline {5.4}Biện luận khoa học sâu sắc về kết quả thực nghiệm}{14}{section.5.4}%
+\contentsline {subsection}{\numberline {5.4.1}Đặc tính phân tách từ của Tokenizer tác động lên độ đo BLEU-4}{14}{subsection.5.4.1}%
+\contentsline {subsection}{\numberline {5.4.2}Ưu thế ngữ nghĩa của mô hình ngôn ngữ lớn (LLM)}{15}{subsection.5.4.2}%
+\contentsline {subsection}{\numberline {5.4.3}Năng lực vượt trội của ViT5-base trong bài toán sinh câu trả lời tiếng Việt}{15}{subsection.5.4.3}%
+\contentsline {section}{\numberline {5.5}Phân tích hiệu năng chi tiết theo chủ đề y khoa}{15}{section.5.5}%
+\contentsline {chapter}{\numberline {6}Phân tích lỗi, ablation và triển khai}{17}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Đường cong học tập và sự hội tụ của mô hình}{17}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Nghiên cứu Ablation Study về chiến lược giải mã}{18}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Phân tích định tính các trường hợp lỗi tiêu biểu (Failure Modes)}{18}{section.6.3}%
+\contentsline {subsection}{\numberline {6.3.1}Lỗi lặp từ vô hạn (Repetitive Loop)}{19}{subsection.6.3.1}%
+\contentsline {subsection}{\numberline {6.3.2}Lỗi ảo tưởng thông tin lạc đề (Factual Hallucination \& Distraction)}{19}{subsection.6.3.2}%
+\contentsline {subsection}{\numberline {6.3.3}Lỗi chi tiết quá mức gây sụt giảm độ đo (Overly Detailed Mismatch)}{20}{subsection.6.3.3}%
+\contentsline {section}{\numberline {6.4}Công bố trọng số mô hình và mã nguồn mở}{20}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Triển khai ứng dụng Web Demo Gradio RAG}{21}{section.6.5}%
+\contentsline {chapter}{\numberline {7}Kết luận và hướng phát triển}{23}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Kết luận}{23}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Hướng phát triển trong tương lai}{23}{section.7.2}%
