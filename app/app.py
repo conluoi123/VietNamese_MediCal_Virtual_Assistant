@@ -23,14 +23,14 @@ from pyvi import ViTokenizer
 MODEL_ID    = "ntthanh0307/vit5-vimedaq-medical-qa"
 MAX_INPUT   = 1024
 MAX_OUTPUT  = 256
-CROSS_ENCODER_THRESHOLD = 0.5
+CROSS_ENCODER_THRESHOLD = 0.7
 
 # Cấu trúc thư mục cho Hugging Face Spaces (đặt các file index vào thư mục /data)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CORPUS_PATH = os.path.join(BASE_DIR, "medical_corpus.json")
-FAISS_PATH  = os.path.join(BASE_DIR, "faiss_index.bin")
-BM25_PATH   = os.path.join(BASE_DIR, "bm25_index_V2.pkl")
+CORPUS_PATH = os.path.join(BASE_DIR, "medical_corpus_V3.json")
+FAISS_PATH  = os.path.join(BASE_DIR, "faiss_index_V3.bin")
+BM25_PATH   = os.path.join(BASE_DIR, "bm25_index_V3.pkl")
 
 # ===========================================================================
 # 2. KHỞI TẠO DỮ LIỆU & INDEX
@@ -38,29 +38,33 @@ BM25_PATH   = os.path.join(BASE_DIR, "bm25_index_V2.pkl")
 print("⏳ Đang tải Knowledge Base và các file Index...")
 try:
     with open(CORPUS_PATH, "r", encoding="utf-8") as f:
-        corpus = json.load(f)
+        corpus_data = json.load(f)
+    
+    # Tạo mảng text phẳng phục vụ cho việc tính toán của BM25 và Cross-Encoder
+    corpus = [doc["text"] for doc in corpus_data]
+    
     faiss_index = faiss.read_index(FAISS_PATH)
     with open(BM25_PATH, "rb") as f:
         bm25 = pickle.load(f)
-    print(f" Đã nạp thành công {len(corpus)} tài liệu y tế (FAISS + BM25)")
+    print(f"✅ Đã nạp thành công {len(corpus)} tài liệu y tế (FAISS + BM25)")
 except Exception as e:
-    print(f"Lỗi khởi tạo dữ liệu. Chi tiết: {e}")
-    corpus, faiss_index, bm25 = [], None, None
+    print(f"⚠️ Lỗi khởi tạo dữ liệu: {e}")
+    corpus_data, corpus, faiss_index, bm25 = [], [], None, None
 
 # ===========================================================================
 # 3. KHỞI TẠO MÔ HÌNH (LLM, BI-ENCODER, CROSS-ENCODER)
 # ===========================================================================
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f" Hệ thống đang chạy trên: {device.upper()}")
+print(f"🚀 Hệ thống đang chạy trên: {device.upper()}")
 
-print("Đang tải SentencePiece Tokenizer thô (chống lỗi KeyError)...")
+print("🔄 Đang tải SentencePiece Tokenizer thô (chống lỗi KeyError)...")
 spiece_path = hf_hub_download(repo_id="VietAI/vit5-base", filename="spiece.model")
 sp = spm.SentencePieceProcessor()
 sp.Load(spiece_path)
 
 PAD_ID, EOS_ID, UNK_ID = 0, 1, 2
 
-print(f"Đang nạp mô hình sinh LLM ({MODEL_ID})...")
+print(f"🔄 Đang nạp mô hình sinh LLM ({MODEL_ID})...")
 dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_ID, torch_dtype=dtype)
 model.config.decoder_start_token_id = PAD_ID
@@ -69,10 +73,10 @@ if model.generation_config is not None:
 model = model.to(device)
 model.eval()
 
-print("Đang nạp Bi-Encoder (dùng cho FAISS)...")
+print("🔄 Đang nạp Bi-Encoder (dùng cho FAISS)...")
 retriever_model = SentenceTransformer("bkai-foundation-models/vietnamese-bi-encoder", device=device)
 
-print(" Đang nạp Cross-Encoder (mMarco)...")
+print("🔄 Đang nạp Cross-Encoder (mMarco)...")
 cross_encoder = CrossEncoder("cross-encoder/mmarco-mMiniLMv2-L12-H384-v1", device=device)
 
 # ===========================================================================
@@ -89,59 +93,34 @@ def sp_decode(ids):
     clean_ids = [i for i in ids if i not in (PAD_ID, EOS_ID, UNK_ID)]
     return sp.DecodeIds(clean_ids)
 
-# def post_process_hallucination(question: str, answer: str) -> str:
-#     q_lower = question.lower()
-#     a_lower = answer.lower()
-    
-#     confusion_matrix = {
-#         "viêm gan": ["gan nhiễm mỡ", "suy gan", "viêm túi mật"],
-#         "sốt xuất huyết": ["sốt thung lũng", "rvf", "sốt rét"],
-#         "tiểu đường": ["huyết áp", "béo phì", "mỡ máu"],
-#         "gout": ["thoái hóa khớp", "viêm khớp dạng thấp"]
-#     }
-    
-#     for q_entity, false_friends in confusion_matrix.items():
-#         if q_entity in q_lower:
-#             for false_entity in false_friends:
-#                 if false_entity in a_lower and false_entity not in q_lower:
-#                     return "Xin lỗi, dữ liệu y khoa hiện tại không đề cập chính xác đến vấn đề này. Tôi phát hiện nguy cơ nhầm lẫn thuật ngữ y khoa."
-
-#     logic_conflicts = [
-#         (["kiêng", "hạn chế", "không nên"], ["nên ăn", "bổ sung", "cần ăn"]),
-#         (["được uống", "được dùng", "nên uống"], ["không được", "chống chỉ định", "tuyệt đối không"])
-#     ]
-    
-#     for negative_words, positive_words in logic_conflicts:
-#         if any(nw in q_lower for nw in negative_words):
-#             if any(pw in a_lower for pw in positive_words):
-#                 return f"{answer}\n\n(Lưu ý: Dữ liệu có thể chứa thông tin nhầm lẫn về chỉ định. Vui lòng tham khảo ý kiến bác sĩ để an toàn tuyệt đối.)"
-                
-#     return answer
-
 # ===========================================================================
 # 5. LUỒNG TRUY XUẤT 3 BƯỚC (FAISS + BM25 -> RRF -> CROSS-ENCODER)
 # ===========================================================================
-def retrieve_contexts(question: str, top_k: int = 3) -> list[str]:
+def retrieve_contexts(question: str, top_k: int = 3) -> list[dict]:
     if not corpus: return []
 
-    # STAGE 1a: FAISS Search (Ngữ nghĩa) - Lấy Top 50
-    query_emb = retriever_model.encode([question], normalize_embeddings=True, show_progress_bar=False)
+    # 1. Chỉ chuẩn hóa cơ bản, không can thiệp nội dung
+    search_query = question.lower().strip()
+
+    # STAGE 1a: FAISS Search (Vector ngữ nghĩa)
+    query_emb = retriever_model.encode([search_query], normalize_embeddings=True, show_progress_bar=False)
     query_emb_f32 = np.array(query_emb).astype('float32')
     distances, faiss_indices = faiss_index.search(query_emb_f32, 50)
     
     dense_rank_dict = {idx: rank for rank, idx in enumerate(faiss_indices[0]) if 0 <= idx < len(corpus)}
 
-    # STAGE 1b: BM25 Search (Từ khóa) - Lấy Top 50
-    tokenized_query = ViTokenizer.tokenize(question).split()
+    # STAGE 1b: BM25 Search (Từ khóa chính xác)
+    tokenized_query = ViTokenizer.tokenize(search_query).split()
     bm25_scores = bm25.get_scores(tokenized_query)
     bm25_ranking = sorted(range(len(bm25_scores)), key=lambda i: bm25_scores[i], reverse=True)[:50]
-    bm25_rank_dict = {idx: rank for rank, idx in enumerate(bm25_ranking)}
+    
+    bm25_rank_dict = {idx: rank for rank, idx in enumerate(bm25_ranking) if 0 <= idx < len(corpus)}
 
-    # STAGE 2: RRF Fusion (Trộn FAISS & BM25)
+    # STAGE 2: RRF Fusion (Trộn điểm)
     rrf_scores = {}
     RRF_K = 50
-    weight_bm25 = 0.5
-    weight_faiss = 0.5
+    weight_bm25 = 0.4
+    weight_faiss = 0.6
     
     all_candidates = set(dense_rank_dict.keys()).union(set(bm25_rank_dict.keys()))
     
@@ -151,15 +130,14 @@ def retrieve_contexts(question: str, top_k: int = 3) -> list[str]:
         score = (weight_bm25 / (RRF_K + bm25_rank)) + (weight_faiss / (RRF_K + faiss_rank))
         rrf_scores[doc_idx] = score
         
-    top_20_candidates = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:50]
-    candidate_indices = [idx for idx, _ in top_20_candidates]
+    top_candidates = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:50]
+    candidate_indices = [idx for idx, _ in top_candidates]
 
-    # STAGE 3: Cross-Encoder (Rerank chính xác cao)
-    cross_inp = [[question, corpus[idx]] for idx in candidate_indices]
+    # STAGE 3: Cross-Encoder (Chấm điểm lại)
+    cross_inp = [[search_query, corpus[idx]] for idx in candidate_indices]
     cross_scores = cross_encoder.predict(cross_inp, batch_size=20)
     
     reranked_order = sorted(range(len(cross_scores)), key=lambda k: cross_scores[k], reverse=True)
-    
     best_ce_score = cross_scores[reranked_order[0]]
     prob_score = 1 / (1 + math.exp(-best_ce_score))
     
@@ -168,40 +146,46 @@ def retrieve_contexts(question: str, top_k: int = 3) -> list[str]:
         return []
 
     best_indices = [candidate_indices[i] for i in reranked_order[:top_k]]
-    return [corpus[idx] for idx in best_indices]
-
+    
+    # Trả về Dict nguyên bản để bóc tách text/metadata
+    return [corpus_data[idx] for idx in best_indices]
 # ===========================================================================
 # 6. LUỒNG SINH CÂU TRẢ LỜI ĐẦU CUỐI
 # ===========================================================================
 def answer_question(question: str, num_beams: int = 2, max_new_tokens: int = 128, top_k: int = 3) -> tuple[str, str]:
-    # Quản lý RAM chặt chẽ
     gc.collect()
     if torch.cuda.is_available(): torch.cuda.empty_cache()
-
+    
     if not question.strip():
         return "⚠️ Vui lòng nhập câu hỏi y tế.", ""
 
+    # Lấy Top-K Contexts
     contexts = retrieve_contexts(question, top_k=top_k)
-    
+        
     if not contexts:
         return "Xin lỗi, dữ liệu y khoa đáng tin cậy của hệ thống không có thông tin chính xác về vấn đề này. Bạn không nên tự ý dùng thuốc mà hãy tham khảo ý kiến bác sĩ chuyên khoa.", "🚨 Đã chặn truy xuất rác."
 
-    contexts_display = "\n\n".join([f"--- Context {i+1} ---\n{ctx}" for i, ctx in enumerate(contexts)])
-    combined_context = " ".join(contexts)
-    input_text = f"question: {question} context: {combined_context}"
+    # 1. Hiển thị UI bằng original_context 
+    contexts_display = "\n\n".join([f"--- Context {i+1} ---\n{ctx['original_context']}" for i, ctx in enumerate(contexts)])
+    
+    # 2. Sinh LLM bằng text (Có tiêm Keyword và Title)
+    contexts_for_llm = [ctx['text'] for ctx in contexts]
+    combined_context = " . ".join(contexts_for_llm)
 
+    input_text = f"question: {question} context: {combined_context}"
     input_ids = sp_encode(input_text, max_length=MAX_INPUT)
+    
     input_tensor = torch.tensor([input_ids], dtype=torch.long).to(device)
     attention_mask = torch.ones_like(input_tensor).to(device)
-
+    
     try:
         with torch.no_grad():
             outputs = model.generate(
                 input_ids=input_tensor,
                 attention_mask=attention_mask,
                 max_new_tokens=max_new_tokens,
-                min_new_tokens=50,
-                length_penalty=1.25,
+                min_new_tokens=50, # Ép model sinh câu dài hơn một chút
+                length_penalty=1.5,
                 num_beams=num_beams,
                 early_stopping=True if num_beams > 1 else False,
                 decoder_start_token_id=PAD_ID,
@@ -214,11 +198,10 @@ def answer_question(question: str, num_beams: int = 2, max_new_tokens: int = 128
         del input_tensor, attention_mask, outputs
         gc.collect()
         if torch.cuda.is_available(): torch.cuda.empty_cache()
-
+        
     if not answer:
         answer = "Xin lỗi, tôi không tìm được câu trả lời phù hợp dựa trên ngữ cảnh hiện tại."
-
-    #answer = post_process_hallucination(question, answer)
+        
     return answer, contexts_display
 
 # ===========================================================================
@@ -248,7 +231,7 @@ custom_css = """
 with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
     gr.HTML("""
         <div class="header-container">
-            <h1 class="header-title">ViMedAQA — Trợ lý Ảo Y tế Tiếng Việt</h1>
+            <h1 class="header-title">🏥 ViMedAQA — Trợ lý Ảo Y tế Tiếng Việt</h1>
             <p class="header-subtitle">
                 Hệ thống hỏi đáp y khoa tự động kết hợp truy xuất đa tầng (FAISS + BM25 + Cross-Encoder) 
                 và sinh câu trả lời bằng mô hình <strong>ViT5-base</strong>.
@@ -264,8 +247,8 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
                 lines=3
             )
             with gr.Row():
-                clear_btn = gr.Button("Xóa", variant="secondary")
-                submit_btn = gr.Button(" Gửi câu hỏi", variant="primary", elem_classes="submit-btn")
+                clear_btn = gr.Button("🗑️ Xóa", variant="secondary")
+                submit_btn = gr.Button("⚡ Gửi câu hỏi", variant="primary", elem_classes="submit-btn")
             
             gr.Examples(
                 examples=[
@@ -274,20 +257,20 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
                     ["Viêm gan B lây qua đường nào?"],
                     ["Sốt xuất huyết có nguy hiểm không?"]
                 ],
-                inputs=[question_input], label=" Câu hỏi ví dụ gợi ý"
+                inputs=[question_input], label="💡 Câu hỏi ví dụ gợi ý"
             )
             
         with gr.Column(scale=2):
-            with gr.Accordion("Cấu hình Tối ưu sinh văn bản", open=True, elem_classes="accordion-settings"):
+            with gr.Accordion("⚙️ Cấu hình Tối ưu sinh văn bản", open=True, elem_classes="accordion-settings"):
                 num_beams_slider = gr.Slider(1, 4, value=2, step=1, label="Beam Search (num_beams)", info="Khuyên dùng 2 cho cân bằng tốc độ/chất lượng.")
                 max_tokens_slider = gr.Slider(32, 1024, value=128, step=8, label="Độ dài câu trả lời tối đa")
                 top_k_slider = gr.Slider(1, 5, value=3, step=1, label="Số văn bản truy xuất (Top-K Contexts)")
                 
     with gr.Row():
         with gr.Column(scale=1):
-            answer_output = gr.Textbox(label="Câu trả lời từ Trợ lý Ảo", lines=6, interactive=False)
+            answer_output = gr.Textbox(label="🏥 Câu trả lời từ Trợ lý Ảo", lines=6, interactive=False)
         with gr.Column(scale=1):
-            context_output = gr.Textbox(label=" Ngữ cảnh y tế tham khảo", lines=8, interactive=False)
+            context_output = gr.Textbox(label="📄 Ngữ cảnh y tế tham khảo", lines=8, interactive=False)
 
     submit_btn.click(fn=answer_question, inputs=[question_input, num_beams_slider, max_tokens_slider, top_k_slider], outputs=[answer_output, context_output])
     question_input.submit(fn=answer_question, inputs=[question_input, num_beams_slider, max_tokens_slider, top_k_slider], outputs=[answer_output, context_output])
