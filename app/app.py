@@ -23,9 +23,9 @@ from pyvi import ViTokenizer
 MODEL_ID    = "ntthanh0307/vit5-vimedaq-medical-qa"
 MAX_INPUT   = 1024
 MAX_OUTPUT  = 256
-CROSS_ENCODER_THRESHOLD = 0.7
+CROSS_ENCODER_THRESHOLD = 0.4
 
-# Cấu trúc thư mục cho Hugging Face Spaces (đặt các file index vào thư mục /data)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 CORPUS_PATH = os.path.join(BASE_DIR, "medical_corpus_V3.json")
@@ -38,18 +38,23 @@ BM25_PATH   = os.path.join(BASE_DIR, "bm25_index_V3.pkl")
 print("⏳ Đang tải Knowledge Base và các file Index...")
 try:
     with open(CORPUS_PATH, "r", encoding="utf-8") as f:
-        corpus_data = json.load(f)
-    
-    # Tạo mảng text phẳng phục vụ cho việc tính toán của BM25 và Cross-Encoder
-    corpus = [doc["text"] for doc in corpus_data]
-    
+        raw_data = json.load(f)
+        
+        # Tự động trích xuất đúng mảng dữ liệu (List)
+        if isinstance(raw_data, dict) and "texts" in raw_data:
+            corpus = raw_data["texts"]
+        elif isinstance(raw_data, dict): # Trường hợp lưu dạng dict {"0": "text", "1": "text"}
+            corpus = [raw_data[str(i)] for i in range(len(raw_data))]
+        else:
+            corpus = raw_data
+
     faiss_index = faiss.read_index(FAISS_PATH)
     with open(BM25_PATH, "rb") as f:
         bm25 = pickle.load(f)
     print(f"✅ Đã nạp thành công {len(corpus)} tài liệu y tế (FAISS + BM25)")
 except Exception as e:
-    print(f"⚠️ Lỗi khởi tạo dữ liệu: {e}")
-    corpus_data, corpus, faiss_index, bm25 = [], [], None, None
+    print(f"⚠️ Lỗi khởi tạo dữ liệu. Hãy đảm bảo các file nằm đúng thư mục. Chi tiết: {e}")
+    corpus, faiss_index, bm25 = [], None, None
 
 # ===========================================================================
 # 3. KHỞI TẠO MÔ HÌNH (LLM, BI-ENCODER, CROSS-ENCODER)
@@ -96,31 +101,33 @@ def sp_decode(ids):
 # ===========================================================================
 # 5. LUỒNG TRUY XUẤT 3 BƯỚC (FAISS + BM25 -> RRF -> CROSS-ENCODER)
 # ===========================================================================
-def retrieve_contexts(question: str, top_k: int = 3) -> list[dict]:
+def retrieve_contexts(question: str, top_k: int = 3) -> list[str]:
     if not corpus: return []
 
-    # 1. Chỉ chuẩn hóa cơ bản, không can thiệp nội dung
+    # Chuyển câu hỏi về chữ thường để BM25 không bị mù
     search_query = question.lower().strip()
-
-    # STAGE 1a: FAISS Search (Vector ngữ nghĩa)
-    query_emb = retriever_model.encode([search_query], normalize_embeddings=True, show_progress_bar=False)
+    
+    search_query_expanded = search_query
+    # STAGE 1a: FAISS Search (Ngữ nghĩa) - Đưa câu hỏi mở rộng vào
+    query_emb = retriever_model.encode([search_query_expanded], normalize_embeddings=True, show_progress_bar=False)
     query_emb_f32 = np.array(query_emb).astype('float32')
     distances, faiss_indices = faiss_index.search(query_emb_f32, 50)
     
     dense_rank_dict = {idx: rank for rank, idx in enumerate(faiss_indices[0]) if 0 <= idx < len(corpus)}
 
-    # STAGE 1b: BM25 Search (Từ khóa chính xác)
+    # STAGE 1b: BM25 Search (Từ khóa) - Đưa câu hỏi đã .lower() vào
     tokenized_query = ViTokenizer.tokenize(search_query).split()
     bm25_scores = bm25.get_scores(tokenized_query)
     bm25_ranking = sorted(range(len(bm25_scores)), key=lambda i: bm25_scores[i], reverse=True)[:50]
     
+    # Thêm điều kiện (if 0 <= idx < len(corpus)) để chống lỗi out-of-bounds
     bm25_rank_dict = {idx: rank for rank, idx in enumerate(bm25_ranking) if 0 <= idx < len(corpus)}
 
-    # STAGE 2: RRF Fusion (Trộn điểm)
+    # STAGE 2: RRF Fusion (Trộn FAISS & BM25)
     rrf_scores = {}
     RRF_K = 50
-    weight_bm25 = 0.4
-    weight_faiss = 0.6
+    weight_bm25 = 0.35 
+    weight_faiss = 0.65 
     
     all_candidates = set(dense_rank_dict.keys()).union(set(bm25_rank_dict.keys()))
     
@@ -130,14 +137,16 @@ def retrieve_contexts(question: str, top_k: int = 3) -> list[dict]:
         score = (weight_bm25 / (RRF_K + bm25_rank)) + (weight_faiss / (RRF_K + faiss_rank))
         rrf_scores[doc_idx] = score
         
-    top_candidates = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:50]
-    candidate_indices = [idx for idx, _ in top_candidates]
+    top_20_candidates = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:50]
+    candidate_indices = [idx for idx, _ in top_20_candidates]
 
-    # STAGE 3: Cross-Encoder (Chấm điểm lại)
-    cross_inp = [[search_query, corpus[idx]] for idx in candidate_indices]
+    # STAGE 3: Cross-Encoder (Rerank)
+    # Phải dùng câu hỏi mở rộng để Cross-Encoder đo độ liên quan chính xác
+    cross_inp = [[search_query_expanded, corpus[idx]] for idx in candidate_indices]
     cross_scores = cross_encoder.predict(cross_inp, batch_size=20)
     
     reranked_order = sorted(range(len(cross_scores)), key=lambda k: cross_scores[k], reverse=True)
+    
     best_ce_score = cross_scores[reranked_order[0]]
     prob_score = 1 / (1 + math.exp(-best_ce_score))
     
@@ -146,46 +155,39 @@ def retrieve_contexts(question: str, top_k: int = 3) -> list[dict]:
         return []
 
     best_indices = [candidate_indices[i] for i in reranked_order[:top_k]]
-    
-    # Trả về Dict nguyên bản để bóc tách text/metadata
-    return [corpus_data[idx] for idx in best_indices]
+    return [corpus[idx] for idx in best_indices]
 # ===========================================================================
 # 6. LUỒNG SINH CÂU TRẢ LỜI ĐẦU CUỐI
 # ===========================================================================
 def answer_question(question: str, num_beams: int = 2, max_new_tokens: int = 128, top_k: int = 3) -> tuple[str, str]:
+    # Quản lý RAM chặt chẽ
     gc.collect()
     if torch.cuda.is_available(): torch.cuda.empty_cache()
-    
+
     if not question.strip():
         return "⚠️ Vui lòng nhập câu hỏi y tế.", ""
 
-    # Lấy Top-K Contexts
     contexts = retrieve_contexts(question, top_k=top_k)
-        
+    
     if not contexts:
         return "Xin lỗi, dữ liệu y khoa đáng tin cậy của hệ thống không có thông tin chính xác về vấn đề này. Bạn không nên tự ý dùng thuốc mà hãy tham khảo ý kiến bác sĩ chuyên khoa.", "🚨 Đã chặn truy xuất rác."
 
-    # 1. Hiển thị UI bằng original_context 
-    contexts_display = "\n\n".join([f"--- Context {i+1} ---\n{ctx['original_context']}" for i, ctx in enumerate(contexts)])
-    
-    # 2. Sinh LLM bằng text (Có tiêm Keyword và Title)
-    contexts_for_llm = [ctx['text'] for ctx in contexts]
-    combined_context = " . ".join(contexts_for_llm)
-
+    contexts_display = "\n\n".join([f"--- Context {i+1} ---\n{ctx}" for i, ctx in enumerate(contexts)])
+    combined_context = " . ".join(contexts)
     input_text = f"question: {question} context: {combined_context}"
+
     input_ids = sp_encode(input_text, max_length=MAX_INPUT)
-    
     input_tensor = torch.tensor([input_ids], dtype=torch.long).to(device)
     attention_mask = torch.ones_like(input_tensor).to(device)
-    
+
     try:
         with torch.no_grad():
             outputs = model.generate(
                 input_ids=input_tensor,
                 attention_mask=attention_mask,
                 max_new_tokens=max_new_tokens,
-                min_new_tokens=50, # Ép model sinh câu dài hơn một chút
-                length_penalty=1.5,
+                min_new_tokens=50,
+                length_penalty=2,
                 num_beams=num_beams,
                 early_stopping=True if num_beams > 1 else False,
                 decoder_start_token_id=PAD_ID,
@@ -198,10 +200,11 @@ def answer_question(question: str, num_beams: int = 2, max_new_tokens: int = 128
         del input_tensor, attention_mask, outputs
         gc.collect()
         if torch.cuda.is_available(): torch.cuda.empty_cache()
-        
+
     if not answer:
         answer = "Xin lỗi, tôi không tìm được câu trả lời phù hợp dựa trên ngữ cảnh hiện tại."
-        
+
+    #answer = post_process_hallucination(question, answer)
     return answer, contexts_display
 
 # ===========================================================================
@@ -255,7 +258,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
                     ["Triệu chứng của bệnh tiểu đường là gì?"],
                     ["Thuốc Paracetamol có tác dụng gì?"],
                     ["Viêm gan B lây qua đường nào?"],
-                    ["Sốt xuất huyết có nguy hiểm không?"]
+                    ["Sốt xuất huyết có nguy hiểm không"]
                 ],
                 inputs=[question_input], label="💡 Câu hỏi ví dụ gợi ý"
             )
