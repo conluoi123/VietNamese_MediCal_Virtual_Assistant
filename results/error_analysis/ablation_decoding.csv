@@ -1,0 +1,3 @@
+Decoding,ROUGE-1,ROUGE-2,ROUGE-L
+Greedy (beams=1),0.7188,0.5998,0.6527
+Beam Search (beams=4),0.7242,0.6069,0.6587

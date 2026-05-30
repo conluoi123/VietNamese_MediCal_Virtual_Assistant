@@ -1,0 +1,4 @@
+model,rouge1,rouge2,rougeL,bleu4,bertscore_f1
+ViT5-base (fine-tuned),0.7318,0.6153,0.668,0.5005,0.8752
+BARTpho-word (fine-tuned),0.7327,0.6185,0.6681,0.2794,0.823
+Llama-3.3-70B-versatile (zero-shot),0.7285,0.6257,0.6664,0.4684,0.8757

@@ -8,7 +8,7 @@ data/
 
 # Secrets
 .env
-venv
+
 # Jupyter cache
 .ipynb_checkpoints/
 
@@ -17,13 +17,25 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Result files (large, stored on Drive)
-*.csv
-*.json
-PIPELINE_ViMedAQA.md
-task.md
-SKILLS.md 
+# LaTeX build artifacts (keep main.pdf for submission)
+report/*.aux
+report/*.bbl
+report/*.blg
+report/*.fdb_latexmk
+report/*.fls
+report/*.lof
+report/*.log
+report/*.lot
+report/*.out
+report/*.synctex
+report/*.synctex.gz
+report/*.toc
+
+# Checkpoint intermediates
+results/*.jsonl
 
 # Misc
 wandb/
 .DS_Store
+.venv/
+venv/

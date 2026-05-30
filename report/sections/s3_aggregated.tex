@@ -13,22 +13,158 @@
 \end{enumerate}
 
 \section{Kiến trúc sinh câu trả lời dựa trên Retrieval-Augmented Generation (RAG)}
-Để giải quyết triệt để hai thách thức lớn nhất của các mô hình ngôn ngữ nhỏ (SLMs) trong miền y khoa là giới hạn tri thức nền (parametric memory) và hiện tượng ảo tưởng thông tin (factual hallucination), đề tài triển khai hệ thống hỏi đáp theo kiến trúc \textbf{RAG (Retrieval-Augmented Generation)}. Kiến trúc này gồm hai cấu phần chính được liên kết chặt chẽ:
+Để giải quyết triệt để hai thách thức lớn nhất của các mô hình ngôn ngữ nhỏ (Small Language Models - SLMs) trong miền y khoa là giới hạn tri thức nền (parametric memory) và hiện tượng ảo giác thông tin (factual hallucination), đề tài nghiên cứu và triển khai hệ thống hỏi đáp theo kiến trúc tinh chỉnh \textbf{RAG (Retrieval-Augmented Generation)}. Kiến trúc đề xuất là một pipeline đa tầng, được kiểm duyệt thông qua 3 cấu phần chính:
 
-\subsection{Cấu phần truy xuất tri thức (Retriever)}
-Khi nhận được một câu hỏi y tế $q$ từ người dùng, hệ thống không trực tiếp đưa vào bộ sinh mà trước hết tiến hành tìm kiếm các tài liệu ngữ cảnh tương thích từ kho tri thức y học độc lập (\texttt{medical\_corpus.json} gồm toàn bộ kiến thức chuyên ngành). Chúng tôi thiết kế hai cơ chế truy xuất bổ trợ lẫn nhau:
+\subsection{Cấu phần truy xuất song song (Hybrid Retrieval)}
+Khi nhận được một câu hỏi y tế $q$ từ người dùng, hệ thống sẽ chuẩn hóa (chuyển chữ thường, xóa khoảng trắng thừa) và tiến hành tìm kiếm trên tập tri thức y học độc lập (\texttt{medical\_corpus.json}). Nhằm tận dụng tối đa thế mạnh của các phương pháp tìm kiếm, hệ thống kích hoạt đồng thời hai cơ chế truy xuất:
 \begin{itemize}
-    \item \textbf{Truy xuất thưa (Sparse Retrieval - BM25Okapi):} Sử dụng thuật toán BM25Okapi để tính toán độ tương quan dựa trên tần suất xuất hiện của các thực thể và từ khóa y học chính xác. Cơ chế này đạt hiệu năng rất cao khi câu hỏi chứa tên bệnh lý hoặc tên thuốc cụ thể.
-    \item \textbf{Truy xuất dày đặc (Dense Retrieval - Bi-Encoder + FAISS):} Sử dụng mô hình biểu diễn ngữ nghĩa chuyên biệt \texttt{bkai-foundation-models/vietnamese-bi-encoder} để ánh xạ câu hỏi và các tài liệu ngữ cảnh vào không gian vector $384$ chiều. Vector câu hỏi được chuẩn hóa L2 và tìm kiếm độ tương đồng Cosine hiệu năng cao bằng thư viện lập chỉ mục vector \textbf{FAISS IndexFlatIP} trên tập tài liệu đã được nhúng sẵn. Cơ chế này giúp nắm bắt ý nghĩa khái niệm sâu sắc ngay cả khi từ ngữ bề mặt không trùng khớp.
+    \item \textbf{Truy xuất thưa (Sparse Retrieval - BM25Okapi):} Câu hỏi được tách từ tiếng Việt qua thư viện \texttt{PyViTokenizer} và đưa vào thuật toán BM25Okapi để tính điểm tương quan dựa trên tần suất từ khóa. Phương pháp này xuất sắc trong việc bắt chính xác các từ khóa "cứng" như tên bệnh lý hoặc tên biệt dược. Kết quả trả về top $50$ tài liệu tốt nhất.
+    \item \textbf{Truy xuất dày đặc (Dense Retrieval - Bi-Encoder + FAISS):} Hệ thống sử dụng mô hình biểu diễn ngữ nghĩa \texttt{bkai-foundation-models/vietnamese-bi-encoder} để ánh xạ câu hỏi vào không gian vector $384$ chiều. Vector này được chuẩn hóa $L_2$ và tìm kiếm độ tương đồng trong không gian \textbf{FAISS IndexFlatIP} (sử dụng Inner Product). Phương pháp này giúp nắm bắt ý nghĩa khái niệm sâu sắc ngay cả khi từ ngữ bề mặt không trùng khớp. Kết quả cũng trả về top $50$ tài liệu có khoảng cách gần nhất.
 \end{itemize}
-Kết quả của cấu phần retriever là top-$K$ ngữ cảnh y học có độ tương đồng cao nhất ($C = \{c_1, c_2, \dots, c_K\}$, mặc định $K=3$).
+
+\subsection{Cấu phần lai ghép và tái xếp hạng (Fusion \& Re-ranking)}
+Để tổng hợp và đánh giá lại kết quả từ hai bộ tìm kiếm độc lập, hệ thống áp dụng luồng xử lý hai bước nhằm chắt lọc ra các ngữ cảnh chính xác nhất:
+\begin{enumerate}
+    \item \textbf{Lai ghép thứ hạng (Reciprocal Rank Fusion - RRF):} Các tài liệu ứng viên từ BM25 và FAISS được gộp lại và tính điểm trọng số chéo. Hệ thống thiết lập trọng số ưu tiên ngữ nghĩa cao hơn ($w_{faiss} = 0.65$, $w_{bm25} = 0.35$) với hằng số làm mượt $K = 50$. Điểm RRF của mỗi tài liệu $d$ được tính theo công thức:
+    $$RRF\_Score(d) = \frac{0.35}{50 + rank_{bm25}(d)} + \frac{0.65}{50 + rank_{faiss}(d)}$$
+    Thuật toán tiến hành sắp xếp và chọn ra top $50$ tài liệu tiềm năng nhất từ danh sách lai ghép.
+    
+    \item \textbf{Tái xếp hạng và lọc nhiễu (Cross-Encoder):} Top $50$ ứng viên tiếp tục được đưa qua mô hình \texttt{mmarco-mMiniLMv2-L12-H384-v1}. Khác với Bi-Encoder, Cross-Encoder tương tác chéo trực tiếp cặp (Câu hỏi, Ngữ cảnh) để sinh ra giá trị thô (logit). Giá trị này được biến đổi qua hàm kích hoạt Sigmoid ($\sigma$) để tính toán độ tin cậy thực tế:
+    $$prob\_score = \sigma(logit) = \frac{1}{1 + e^{-logit}}$$
+    Hệ thống thiết lập một chốt chặn an toàn với ngưỡng $\tau = 0.4$. Các ngữ cảnh có $prob\_score < \tau$ sẽ bị đánh dấu là dữ liệu nhiễu và lập tức bị loại bỏ. Hệ thống sẽ lấy top-$K$ (mặc định $K=3$) ngữ cảnh vượt qua kiểm duyệt để chuyển sang bộ sinh.
+\end{enumerate}
 
 \subsection{Cấu phần sinh câu trả lời (Generator)}
-Chuỗi ngữ cảnh được thu thập $C$ được ghép nối trực tiếp với câu hỏi ban đầu $q$ để tạo ra chuỗi đầu vào hoàn chỉnh:
-\begin{equation}
-    X = \text{``question: } q \text{ context: } c_1 \ c_2 \ \dots \ c_K\text{''}
-\end{equation}
-Chuỗi $X$ được tokenizer phân tách thành chuỗi token ID và đưa vào mô hình Seq2Seq đã được tinh chỉnh (như ViT5-base) để tự hồi quy sinh ra câu trả lời y tế chuẩn xác $A = \{a_1, a_2, \dots, a_T\}$.
+Nếu không có ngữ cảnh nào vượt qua màng lọc kiểm duyệt, hệ thống kích hoạt cơ chế Fallback, tự động từ chối trả lời để đảm bảo an toàn y khoa. Ngược lại, tập ngữ cảnh sạch thu được sẽ được ghép nối với câu hỏi ban đầu $q$ theo cấu trúc Prompt nghiêm ngặt:
+$$X = \text{``question: } q \text{ context: } c_1 \ . \ c_2 \ . \ \dots \ c_K\text{''}$$
+
+\noindent Chuỗi $X$ được SentencePiece Tokenizer phân tách và đưa vào mô hình Sequence-to-Sequence \texttt{ViT5-base} (\texttt{ntthanh0307/vit5-vimedaq-medical-qa}). Quá trình giải mã tự hồi quy sử dụng thuật toán Beam Search với cấu hình tối ưu hiệu năng (số chùm \texttt{num\_beams=2}, hệ số phạt lặp \texttt{repetition\_penalty=1.5}, hệ số phạt độ dài \texttt{length\_penalty=2.0}). Các tham số này ép mô hình phải bám sát ngữ liệu đầu vào để sinh ra câu trả lời y tế minh bạch, chính xác và giảm thiểu rủi ro sinh từ vựng ảo giác.
+
+\subsection{Sơ đồ kiến trúc tổng thể}
+Dưới đây là sơ đồ kiến trúc tổng thể của dự án:
+
+\begin{figure}[H]
+    \centering
+    \resizebox{\textwidth}{!}{% Đảm bảo co giãn đồng bộ toàn bộ sơ đồ vừa khít trang A4
+\begin{tikzpicture}[
+    font=\sffamily\small,
+    >=Stealth,
+    node distance=0.8cm and 0.8cm,
+    % --- Styles cho các node con ---
+    box/.style={rectangle, draw=black!60, thick, rounded corners, align=center, minimum width=3.8cm, minimum height=0.9cm, fill=white},
+    db/.style={cylinder, draw=gray!80, thick, aspect=0.25, shape border rotate=90, align=center, fill=gray!10, minimum width=3.2cm, minimum height=1.2cm},
+    diamondbox/.style={diamond, draw=red!60, thick, fill=white, aspect=2, inner sep=2pt, align=center},
+    % --- Styles màu cho từng Khối ---
+    col1/.style={box, draw=blue!60, fill=blue!5},
+    col2/.style={box, draw=orange!60, fill=orange!5},
+    col3/.style={box, draw=green!60!black, fill=green!5},
+    col4/.style={box, draw=purple!60, fill=purple!5},
+    title/.style={font=\bfseries, align=center}
+]
+
+% ==========================================
+% KHỐI 1: PIPELINE XỬ LÝ DỮ LIỆU (ETL)
+% ==========================================
+\node[db] (c1_raw) {Dữ liệu y tế thô\\(VimedQA Raw)};
+\node[col1, below=of c1_raw] (c1_clean) {Lọc trùng \&\\Làm sạch văn bản};
+\node[col1, below=of c1_clean] (c1_chunk) {Chunking theo câu\\(Sentence-aware)};
+\node[col1, below=of c1_chunk] (c1_meta) {Làm giàu Metadata\\([Keyword] Title)};
+\node[col1, below=of c1_meta] (c1_json) {Tệp Corpus JSON\\(Sẵn sàng Index)};
+
+\draw[->, thick] (c1_raw) -- (c1_clean);
+\draw[->, thick] (c1_clean) -- (c1_chunk);
+\draw[->, thick] (c1_chunk) -- (c1_meta);
+\draw[->, thick] (c1_meta) -- (c1_json);
+
+% ==========================================
+% KHỐI 2: ĐÁNH CHỈ MỤC ĐA NHÁNH
+% ==========================================
+\node[col2, right=2.5cm of c1_clean] (c2_dense_model) {Bi-Encoder Model\\(vietnamese-sbert)};
+\node[col2, below=of c2_dense_model] (c2_faiss) {FAISS Vector DB\\(Nhánh Dense)};
+
+\node[col2, below=1.5cm of c2_faiss] (c2_sparse_model) {PyVi Tokenizer\\(Tách từ TV)};
+\node[col2, below=of c2_sparse_model] (c2_bm25) {BM25 Index\\(Nhánh Sparse)};
+
+\draw[->, thick] (c1_json.east) -- ++(1cm,0) |- (c2_dense_model.west);
+\draw[->, thick] (c1_json.east) -- ++(1cm,0) |- (c2_sparse_model.west);
+
+\draw[->, thick] (c2_dense_model) -- (c2_faiss);
+\draw[->, thick] (c2_sparse_model) -- (c2_bm25);
+
+% ==========================================
+% KHO LƯU TRỮ CỤC BỘ (HUGGING FACE)
+% ==========================================
+\node[db, right=1.8cm of c2_faiss, yshift=-2cm, fill=teal!10, draw=teal!80] (hf_storage) {Tệp tin cục bộ\\(Hugging Face Space)};
+
+% Biểu diễn thao tác Upload file thủ công/Git LFS
+\draw[->, thick, dashed] (c2_faiss.east) -| node[midway,above,xshift=-1.5cm,font=\scriptsize\ttfamily] {faiss\_index.bin} (hf_storage.north);
+\draw[->, thick, dashed] (c2_bm25.east) -| node[below, xshift=-1.5cm,font=\scriptsize\ttfamily] {bm25\_index.pkl} (hf_storage.south);
+
+% ==========================================
+% KHỐI 3: LUỒNG RAG CỐT LÕI (RUN-TIME)
+% ==========================================
+\node[col3, right=6.5cm of c2_dense_model, yshift=1.5cm] (c3_user) {Người dùng\\(Gửi câu hỏi)};
+\node[col3, below=of c3_user] (c3_prep) {Chuẩn hóa \&\\Từ đồng nghĩa};
+\node[col3, below=of c3_prep] (c3_hybrid) {Truy xuất song song\\(Hybrid Search)};
+\node[col3, below=of c3_hybrid] (c3_rrf) {Hợp nhất \&\\Nội suy điểm (RRF)};
+\node[col3, below=of c3_rrf] (c3_cross) {Cross-Encoder\\(Chấm điểm \& Rerank)};
+\node[diamondbox, below=0.5cm of c3_cross] (c3_thresh) {Score > 0.4?};
+
+\draw[->, thick] (c3_user) -- (c3_prep);
+\draw[->, thick] (c3_prep) -- (c3_hybrid);
+
+% Ứng dụng đọc file tĩnh trực tiếp từ ổ cứng của Hugging Face
+\draw[->,thick] (hf_storage.east)--(c3_hybrid.west);
+
+\draw[->, thick] (c3_hybrid) -- (c3_rrf);
+\draw[->, thick] (c3_rrf) -- (c3_cross);
+\draw[->, thick] (c3_cross) -- (c3_thresh);
+
+% ==========================================
+% KHỐI 4: TỔNG HỢP & HIỂN THỊ UI
+% ==========================================
+% �� ĐÃ LOẠI BỎ PROMPT ENGINEERING, NỐI ĐẠT TRỰC TIẾP VÀO ViT5
+\node[col4, right=2cm of c3_hybrid] (c4_vit5) {ViT5 Seq2Seq\\(Tổng hợp câu trả lời)};
+\node[col4, below=1cm of c4_vit5] (c4_out) {Giao diện Gradio\\(Hiển thị kết quả)};
+\node[col4, below=1cm of c4_out] (c4_fallback) {Fallback\\(Cảnh báo từ chối)};
+
+% Điều hướng từ Diamond (Pass đi vào LLM, Fall đi vào Fallback)
+\draw[->, thick] (c3_thresh.east) -- ++(1,0) |- node[above, xshift=0.5cm, font=\bfseries] {Đạt} (c4_vit5.west);
+\draw[->, thick] (c3_thresh.south)--++(0,-0.45cm)--++(5.9cm,0)node[midway,above, font=\bfseries, xshift=-0.2cm] {Thấp} --++(0,2cm)--(c4_fallback.south);
+
+\draw[->, thick] (c4_vit5) -- (c4_out);
+\draw[->, thick, dashed] (c4_fallback) |- (c4_out.south);
+
+
+%\draw[->, thick, dashed, draw=blue!50] (c4_out.east) -- ++(-1.5cm,0) |- (c3_user.west);
+% Thêm nhãn cho đường phản hồi nếu cần: node[near start,above,rotate=90] {Gửi câu hỏi tiếp}
+
+% ==========================================
+% VẼ KHUNG BACKGROUND CHO CÁC KHỐI
+% ==========================================
+\begin{scope}[on background layer]
+    % Background Khối 1
+    \node[rectangle, draw=blue!80, fill=blue!5, thick, rounded corners, inner sep=15pt, fit=(c1_raw) (c1_json)] (bg1) {};
+    \node[title, text=blue!80!black, anchor=south] at (bg1.north) {KHỐI 1: PIPELINE XỬ LÝ\\DỮ LIỆU (ETL)};
+    
+    % Background Khối 2
+    \node[rectangle, draw=orange!80, fill=orange!5, thick, rounded corners, inner sep=15pt, fit=(c2_dense_model) (c2_bm25)] (bg2) {};
+    \node[title, text=orange!80!black, anchor=south] at (bg2.north) {KHỐI 2: ĐÁNH CHỈ MỤC\\ĐA NHÁNH (INDEXING)};
+    
+    % Background Khối 3
+    \node[rectangle, draw=green!80!black, fill=green!5, thick, rounded corners, inner sep=15pt, fit=(c3_user) (c3_thresh)] (bg3) {};
+    \node[title, text=green!60!black, anchor=south] at (bg3.north) {KHỐI 3: LUỒNG RAG\\CỐT LÕI (RUN-TIME)};
+    
+
+    \node[rectangle, draw=purple!80, fill=purple!5, thick, rounded corners, inner sep=15pt, fit=(c4_vit5) (c4_fallback) (c4_out)] (bg4) {};
+    \node[title, text=purple!80!black, anchor=south] at (bg4.north) {KHỐI 4: TỔNG HỢP\\\& HIỂN THỊ UI};
+\end{scope}
+
+\end{tikzpicture}
+    }
+    \caption{Sơ đồ kiến trúc tổng thể của hệ thống ViMedAQA}
+    \label{fig:architecture_diagram}
+\end{figure}
 
 \section{Quy trình huấn luyện và tối ưu hóa Seq2Seq}
 Quá trình tinh chỉnh (fine-tuning) hai mô hình chính ViT5-base \cite{phan2022vit5} và BARTpho-word \cite{tran2021bartpho} sử dụng hàm mất mát âm log-likelihood (Negative Log-Likelihood - NLL) trên từng token của chuỗi đáp án mục tiêu:

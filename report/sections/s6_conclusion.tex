@@ -9,7 +9,6 @@ Cuối cùng, hệ thống đã được tích hợp thành công vào cấu tr�
 \section{Hướng phát triển trong tương lai}
 Để nâng cao độ tin cậy và mở rộng quy mô ứng dụng của hệ thống, chúng tôi đề xuất ba định hướng nghiên cứu chuyên sâu tiếp theo:
 \begin{enumerate}
-    \item \textbf{Cơ chế RAG lai ghép (Hybrid Retrieval) và tối ưu hóa ngữ cảnh (Reranking):} Kết hợp sức mạnh bổ trợ lẫn nhau của cơ chế truy xuất thưa (BM25Okapi) và truy xuất dày đặc (Dense Bi-Encoder). Đồng thời, tích hợp mô hình đánh giá lại độ tương quan (Cross-Encoder Reranker) để chọn lọc và sắp xếp thứ tự ngữ cảnh y học chính xác nhất, giảm thiểu tối đa tạp âm và thông tin dư thừa đưa vào bộ sinh.
     \item \textbf{Đánh giá an toàn y khoa và giảm thiểu ảo tưởng triệt để (Fact-checking \& Medical Alignment):} Xây dựng cấu phần hậu xử lý tự động kiểm chứng nguồn thông tin y học sinh ra đối chiếu trực tiếp với ngữ cảnh gốc để phát hiện và ngăn chặn kịp thời các thông tin ảo tưởng y học nguy hiểm. Áp dụng kỹ thuật tối ưu hóa dựa trên phản hồi của chuyên gia y tế (RLHF - Reinforcement Learning from Human Feedback) để tinh chỉnh hành vi của mô hình tiệm cận với đạo đức và quy chuẩn lâm sàng.
     \item \textbf{Mở rộng dữ liệu đa chủ đề và tích hợp mô hình ngôn ngữ lớn nội địa:} Thu thập thêm dữ liệu chuyên sâu cho các chuyên khoa khó (như nhãn chủ đề y khoa Topic 1) và tiếp tục thực nghiệm tinh chỉnh trên các mô hình ngôn ngữ lớn mã nguồn mở có tri thức tiếng Việt mạnh mẽ hơn (như PhoGPT hoặc Vistral) nhằm tăng cường năng lực suy luận y học đa bước phức tạp.
 \end{enumerate}
